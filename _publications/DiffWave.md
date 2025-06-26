@@ -10,7 +10,7 @@ citation: '<b>Chi-Jui Ho</b>, Yash Belhe, Steve Rotenberg, Ravi Ramamoorthi, Tzu
 Optimization," in <i>International Conference on Computer Vision</i>, 2025.'
 
 ---
-<img src='/images/PDAF.jpg' width='600' > <br/>
+<img src='/images/DiffWave.png' width='600' > <br/>
 
 <br/>
 [<img src='/images/pdf.png' width='60' >](http://JerryHoTaiwan.github.io/files/DiffWave_ICCV.pdf)
