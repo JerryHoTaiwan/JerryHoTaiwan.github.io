@@ -23,11 +23,16 @@
   a:hover {
     text-decoration: underline;
   }
+  .header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2em;
+  }
+  
   .profile-img {
-    float: right;
-    margin-left: 20px;
-    width: 150px;
-    border-radius: 8px;
+  width: 150px;
+  border-radius: 8px;
+  margin-right: 20px;
   }
   .pub-title {
     font-weight: bold;
@@ -56,20 +61,23 @@
 <meta name="robots" content="noindex"/>
 </head>
 <body>
-<h1>Chi-Jui (Jerry) Ho</h1>
-<p><strong>Ph.D. Candidate</strong><br/>
-Department of Electrical and Computer Engineering, UC San Diego<br/>
-Email: chh009@ucsd.edu</p>
+<div class="header">
+  <img src="imgs/jerry.jpg" alt="Your Photo" class="profile-img"/>
+  <div>
+    <h1>Chi-Jui (Jerry) Ho</h1>
+    <p><strong>Ph.D. Candidate</strong><br/>
+    Department of Electrical and Computer Engineering, UC San Diego<br/>
+    Email: chh009@ucsd.edu</p>
 
-<div class="social-links">
-  <a href="https://www.linkedin.com/in/chi-jui-jerry-ho/" target="_blank">LinkedIn</a>
-  <span class="dot">•</span>
-  <a href="https://github.com/JerryHoTaiwan" target="_blank">GitHub</a>
-  <span class="dot">•</span>
-  <a href="https://scholar.google.com/citations?hl=en&user=HRKp738AAAAJ" target="_blank">Google Scholar</a>
+    <div class="social-links">
+      <a href="https://www.linkedin.com/in/chi-jui-jerry-ho/" target="_blank">LinkedIn</a>
+      <span class="dot">•</span>
+      <a href="https://github.com/JerryHoTaiwan" target="_blank">GitHub</a>
+      <span class="dot">•</span>
+      <a href="https://scholar.google.com/citations?hl=en&user=HRKp738AAAAJ" target="_blank">Google Scholar</a>
+    </div>
+  </div>
 </div>
-
-<img src="imgs/jerry.jpg" alt="Your Photo" class="profile-img"/>
 
 <h2>About Me</h2>
 <p>I am a Ph.D. candidate at UC San Diego, advised by <a href="http://www.nickantipa.com">Nick Antipa</a>. My research explores the intersection of physics and computation for imaging system design and optimization, integrating physical modeling with data-driven algorithms to enhance imaging performance and interpretability. Research projects span differentiable optics simulation, computational photography, and medical imaging. I've interned at Meta Reality Labs and MediaTek.</p>
