@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>2DIR 三脈衝：t1, t2, t3 的物理意義整理</title>
+
+  <!-- MathJax v3 CDN，用來顯示 LaTeX 公式 -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [["$", "$"], ["\\(", "\\)"]],
+        displayMath: [["$$", "$$"], ["\\[", "\\]"]]
+      },
+      svg: { fontCache: "global" }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, "Noto Sans CJK TC", "PingFang TC", sans-serif;
+      line-height: 1.7;
+      color: #222;
+      background: #fafafa;
+    }
+    h1, h2, h3 {
+      color: #111;
+      margin-top: 1.8rem;
+      margin-bottom: 0.6rem;
+    }
+    h1 {
+      font-size: 1.8rem;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 0.4rem;
+    }
+    h2 {
+      font-size: 1.4rem;
+      border-left: 4px solid #007acc;
+      padding-left: 0.4rem;
+    }
+    h3 {
+      font-size: 1.15rem;
+    }
+    p {
+      margin: 0.3rem 0 0.7rem;
+    }
+    ul {
+      margin-top: 0.1rem;
+      margin-bottom: 0.7rem;
+      padding-left: 1.3rem;
+    }
+    li {
+      margin: 0.15rem 0;
+    }
+    code {
+      font-family: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.85rem;
+      background: #f3f3f3;
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+    }
+    hr {
+      margin: 1.8rem 0;
+      border: none;
+      border-top: 1px solid #ddd;
+    }
+    .section-label {
+      font-weight: bold;
+      color: #555;
+      letter-spacing: 0.05em;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+    }
+    .note {
+      background: #fff9e6;
+      border-left: 4px solid #f0c14b;
+      padding: 0.6rem 0.8rem;
+      margin: 0.7rem 0 1rem;
+      font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+
+<h1>2DIR 三脈衝中 \( t_1, t_2, t_3 \) 的物理意義整理筆記</h1>
+
+<p>
+整篇假設的是 <strong>2DIR 三脈衝實驗</strong>，三個脈衝依序記為
+\( E_1, E_2, E_3 \)，對應的延遲時間為 \( t_1, t_2, t_3 \)。
+模型使用最簡單的「兩能階 + 一個更高能階」來描述。
+</p>
+
+<div class="note">
+  <span class="section-label">給未來的自己：</span><br />
+  這份筆記重點是：三個時間軸的物理意義、哪些是「控制時間」、哪些是「自然演化的觀察時間」，
+  以及它們和頻譜軸 \( \omega_1, t_2, \omega_3 \) 的對應關係。
+</div>
+
+<hr />
+
+<h2>0. 快速總整理</h2>
+
+<h3>三個時間軸的角色</h3>
+
+<p><strong>\( t_1 \)：coherence time（吸收階段）</strong></p>
+<ul>
+  <li>脈衝：介於 \( E_1 \) 與 \( E_2 \) 之間的延遲。</li>
+  <li>狀態：分子處在 \( \lvert g\rangle \) 與 \( \lvert e\rangle \) 的疊加（coherence）。</li>
+  <li>行為：偶極以能階差頻率 \( \omega_{eg} \) 快速震盪。</li>
+  <li>實驗：掃 \( t_1 \)，對 \( t_1 \) 做 Fourier transform → 得到 excitation 軸 \( \omega_1 \)。</li>
+</ul>
+
+<p><strong>\( t_2 \)：waiting / population time（等待階段）</strong></p>
+<ul>
+  <li>脈衝：介於 \( E_2 \) 與 \( E_3 \) 之間的延遲。</li>
+  <li>狀態：分子主要處於 population 分布（\( \rho_{gg}, \rho_{ee} \) 等），不是光學相干。</li>
+  <li>行為：進行弛豫、能量轉移、去相干等慢過程。</li>
+  <li>實驗：掃 \( t_2 \) 看訊號如何隨 \( t_2 \) 衰減或振盪 → 提供 \( T_1, T_2 \)、能量轉移資訊。</li>
+</ul>
+
+<p><strong>\( t_3 \)：detection time（發光階段）</strong></p>
+<ul>
+  <li>脈衝：第三個脈衝 \( E_3 \) 打下去之後，樣品開始發出訊號的時間。</li>
+  <li>狀態：\( E_3 \) 把 population 再次轉成相干，樣品偶極開始振盪。</li>
+  <li>行為：偶極以 \( \omega_{eg} \) 震盪並輻射，形成時間域訊號 \( E_{\text{sig}}(t_3) \)。</li>
+  <li>實驗：一次錄下完整的 \( t_3 \) 波形，對 \( t_3 \) 做 Fourier transform → 得到 emission 軸 \( \omega_3 \)。</li>
+</ul>
+
+<h3>為什麼 \( t_3 \) 可以一次錄完，而 \( t_1, t_2 \) 要掃？</h3>
+
+<ul>
+  <li>
+    \( t_1, t_2 \) 是「實驗者設定的延遲參數」，這段時間樣品通常<strong>不會對外發光</strong>。
+    因此只能：改一個 \( t_1/t_2 \) → 做一次實驗 → 收一筆訊號 → 重複很多次。
+  </li>
+  <li>
+    \( t_3 \) 是「樣品自然發光的時間軸」：一次打完 \( E_3 \)，樣品自己隨 \( t_3 \) 演化並釋放整段訊號；
+    只要一次連續量測，就拿到完整的 \( t_3 \)-trace。
+  </li>
+</ul>
+
+<hr />
+
+<h2>1. 基本模型與符號</h2>
+
+<h3>1.1 能階與量子態</h3>
+
+<p>最簡三層模型：</p>
+<ul>
+  <li>\( \lvert g\rangle \)：基態（ground state）</li>
+  <li>\( \lvert e\rangle \)：第一激發態（excited state）</li>
+  <li>\( \lvert f\rangle \)：更高一階（例如二次激發或其他耦合態）</li>
+</ul>
+
+<p>能量差：</p>
+
+<p>
+  \( \hbar \omega_{eg} = E_e - E_g \),  
+  \( \hbar \omega_{fe} = E_f - E_e \).
+</p>
+
+<p>量子態可寫成疊加：</p>
+
+\[ 
+\lvert \Psi\rangle = c_g \lvert g\rangle + c_e \lvert e\rangle + c_f \lvert f\rangle 
+\]
+
+<p>其中 \( \lvert c_g\rvert^2, \lvert c_e\rvert^2, \lvert c_f\rvert^2 \) 是在各能階被量到的機率。</p>
+
+<h3>1.2 密度矩陣：population vs. coherence</h3>
+
+<p>密度矩陣：</p>
+
+\[
+\rho =
+\begin{pmatrix}
+\rho_{gg} & \rho_{ge} & \cdots \\
+\rho_{eg} & \rho_{ee} & \cdots \\
+\vdots & \vdots & \ddots
+\end{pmatrix}
+\]
+
+<ul>
+  <li>對角項：\( \rho_{gg}, \rho_{ee}, \rho_{ff} \) → <strong>population</strong>（各能階的人數比例）。</li>
+  <li>非對角項：\( \rho_{ge}, \rho_{eg}, \dots \) → <strong>coherence</strong>（能階之間「樓梯上的疊加／干涉」）。</li>
+</ul>
+
+<p><strong>記法重點：</strong></p>
+<ul>
+  <li>population：只是在數「各樓層有幾個人」，不產生持續光學震盪。</li>
+  <li>coherence：\( \lvert g\rangle \) 與 \( \lvert e\rangle \) 的疊加，對應一個振盪的偶極 → 會吸收／放出具相位的光。</li>
+</ul>
+
+<h3>1.3 三個脈衝與時間延遲</h3>
+
+<p>三個入射脈衝：</p>
+<ul>
+  <li>\( E_1(t) \)：第一個 pump</li>
+  <li>\( E_2(t) \)：第二個 pump</li>
+  <li>\( E_3(t) \)：probe / 第三個 pulse</li>
+</ul>
+
+<p>時間延遲：</p>
+<ul>
+  <li>\( t_1 \)：\( E_1 \rightarrow E_2 \) 的延遲（coherence time）。</li>
+  <li>\( t_2 \)：\( E_2 \rightarrow E_3 \) 的延遲（waiting / population time）。</li>
+  <li>\( t_3 \)：\( E_3 \) 之後，樣品發出訊號的演化時間（detection time）。</li>
+</ul>
+
+<p>訊號場與 2DIR 資料：</p>
+
+\[
+E_{\text{sig}}(t_3) \propto P^{(3)}(t_3, t_2, t_1),
+\]
+
+\[
+S(\omega_1, t_2, \omega_3).
+\]
+
+<hr />
+
+<h2>2. \( t_1 \)：coherence time（吸收階段）</h2>
+
+<h3>2.1 在 \( t_1 \) 期間發生什麼？</h3>
+
+<ol>
+  <li>
+    <strong>起始：</strong> 所有分子在基態 \( \lvert g\rangle \)，
+    \[
+    \rho^{(0)} =
+    \begin{pmatrix}
+    1 & 0 \\
+    0 & 0
+    \end{pmatrix}.
+    \]
+  </li>
+  <li>
+    <strong>第一個脈衝 \( E_1 \)：</strong><br />
+    將一部分 population 從 \( \lvert g\rangle \) 推成疊加態，產生光學相干：
+    \[
+    \rho_{ge}^{(1)} \neq 0.
+    \]
+  </li>
+  <li>
+    <strong>在 \( t_1 \) 期間的演化：</strong><br />
+    這個 coherence 以能階差頻率震盪：
+    \[
+    \rho_{ge}^{(1)}(t_1) \sim e^{+i\omega_{eg} t_1} e^{-t_1/T_2},
+    \]
+    其中：
+    <ul>
+      <li>\( e^{+i\omega_{eg} t_1} \)：fast oscillation（分子在「一樓／二樓疊加」之間的相位演化）。</li>
+      <li>\( e^{-t_1/T_2} \)：相干衰減（dephasing），envelope 隨 \( t_1 \) 變小。</li>
+    </ul>
+  </li>
+  <li>
+    <strong>第二個脈衝 \( E_2 \)：</strong><br />
+    把這個 coherence 投影成 population 或更高階的 coherence，準備進入 \( t_2 \) 段。
+  </li>
+</ol>
+
+<h3>2.2 為什麼要掃 \( t_1 \) 並對它做 Fourier transform？</h3>
+
+<ul>
+  <li>在 \( t_1 \) 期間，樣品<strong>不會直接發光到偵測器</strong>。</li>
+  <li>因此只能「改變 \( t_1 \) 長度」，讓 coherence 震盪不同時間，最後在 \( t_3 \) 的訊號裡看到差異。</li>
+  <li>對 \( t_1 \) 方向做 Fourier transform：
+    \[
+    t_1 \xrightarrow{\text{FT}} \omega_1,
+    \]
+    得到 excitation 頻率軸 \( \omega_1 \)，代表「一開始分子吸收光的頻率」。
+  </li>
+</ul>
+
+<p><strong>直覺：</strong> \( t_1 \) 就是「第一次被打上樓梯之後，在樓梯上待了多久、震盪了幾圈」。</p>
+
+<hr />
+
+<h2>3. \( t_2 \)：waiting / population time（等待階段）</h2>
+
+<h3>3.1 在 \( t_2 \) 期間發生什麼？</h3>
+
+<p>第二個脈衝 \( E_2 \) 打下去後：</p>
+
+<ul>
+  <li>原本的 coherence 被「投影」成不同的 population：</li>
+</ul>
+
+<p>
+  部分回到基態 \( \rho_{gg} \)、部分留在激發態 \( \rho_{ee} \)、也可能進入 \( \rho_{ff} \)。
+</p>
+
+<p>在 \( t_2 \) 這段時間，主要是 population dynamics：</p>
+
+\[
+\rho_{ee}(t_2) = \rho_{ee}(0)\, e^{-t_2/T_1} + \text{(轉移到其他能階)}.
+\]
+
+<p>也可能有較慢的振盪（例如振動拍頻、能量轉移），但這已不是單純 \( \lvert g\rangle \leftrightarrow \lvert e\rangle \) 的光學相干。</p>
+
+<h3>3.2 為什麼訊號隨 \( t_2 \) 變小？</h3>
+
+<ul>
+  <li>population relax：人從「樓上」慢慢走回「樓下」。</li>
+  <li>dephasing / energy transfer：相干記憶被抹平，coherence 分散到更多狀態。</li>
+  <li>結果：在 \( t_2 \) 越長的情況下，能被第三個脈衝 \( E_3 \) 有效「弄出光」的那群分子越少，訊號振幅隨 \( t_2 \) 衰減。</li>
+</ul>
+
+<h3>3.3 為什麼要掃 \( t_2 \)？</h3>
+
+<ul>
+  <li>\( t_2 \) 是一個<strong>實驗控制參數</strong>（第二、第三個脈衝之間的延遲）。</li>
+  <li>在這段期間沒有訊號直接發出，只能藉由「改變 \( t_2 \)」重新做實驗，看最後的訊號如何改變。</li>
+  <li>\( t_2 \)-dependence 提供分子動力學資訊：弛豫時間 \( T_1 \)、能量轉移速率等。</li>
+</ul>
+
+<hr />
+
+<h2>4. \( t_3 \)：detection time（發光階段）</h2>
+
+<h3>4.1 第三個脈衝 \( E_3 \) 的角色</h3>
+
+<p>當 \( t_2 \) 結束、第三個脈衝 \( E_3 \) 打進樣品時：</p>
+
+<ul>
+  <li>它看到的是某種 population 分布（在 \( \lvert g\rangle, \lvert e\rangle, \lvert f\rangle \) 之間）。</li>
+  <li>\( E_3 \) 把這個 population 再次轉回 coherence：</li>
+</ul>
+
+<p>例如：</p>
+
+<ul>
+  <li>\( \lvert g\rangle \leftrightarrow \lvert e\rangle \)：對應 GSB / SE pathway。</li>
+  <li>\( \lvert e\rangle \leftrightarrow \lvert f\rangle \)：對應 ESA pathway。</li>
+</ul>
+
+<p>這些 coherence 隨 \( t_3 \) 的演化形式類似：</p>
+
+\[
+\rho_{eg}^{(3)}(t_3) \sim e^{-i\omega_{eg} t_3} e^{-t_3/T_2}, \qquad
+\rho_{fe}^{(3)}(t_3) \sim e^{-i\omega_{fe} t_3} e^{-t_3/T_2'}.
+\]
+
+<p>代表在 \( t_3 \) 段，樓層之間又重新出現震盪，這次處於「發光階段」。</p>
+
+<h3>4.2 為什麼對 \( t_3 \) 來說會有 fast oscillation？</h3>
+
+<ul>
+  <li>因為又變成 \( \lvert e\rangle \) 和 \( \lvert g\rangle \) 的疊加 → 光學相干。</li>
+  <li>這個相干對應的偶極會以 \( \omega_{eg} \) 振盪，輻射出訊號場。</li>
+</ul>
+
+<p>量到的訊號場一般可寫成：</p>
+
+\[
+E_{\text{sig}}(t_3) = A(t_3)\, e^{-i\omega_{\text{center}} t_3},
+\]
+
+<ul>
+  <li>\( e^{-i\omega_{\text{center}} t_3} \)：fast oscillation（接近分子共振頻率）。</li>
+  <li>\( A(t_3) \)：envelope，隨 \( t_3 \) 衰減，反映相干壽命 \( T_2 \)。</li>
+</ul>
+
+<h3>4.3 Heterodyne detection：如何量 \( E_{\text{sig}}(t_3) \)</h3>
+
+<p>用一個 local oscillator（LO）和訊號場在偵測器上干涉：</p>
+
+\[
+I(t_3) \propto \lvert E_{\text{sig}} + E_{\text{LO}} \rvert^2
+\approx \lvert E_{\text{LO}}\rvert^2 + 2\,\mathrm{Re}[E_{\text{sig}}(t_3) E_{\text{LO}}^*(t_3)].
+\]
+
+<ul>
+  <li>LO 場已知。</li>
+  <li>干涉項包含了 \( E_{\text{sig}}(t_3) \) 的振幅與相位。</li>
+  <li>偵測器隨 \( t_3 \) 連續讀取 \( I(t_3) \)，等效於量到完整的時間波形。</li>
+</ul>
+
+<p>因此：不需要「逐點掃 \( t_3 \)」，一次脈衝之後，把整段 \( t_3 \) 的訊號錄完即可。</p>
+
+<h3>4.4 對 \( t_3 \) 做 Fourier transform → \( \omega_3 \)</h3>
+
+<p>對時間域訊號做 Fourier transform：</p>
+
+\[
+S(\omega_3) = \mathcal{F}_{t_3}\{ E_{\text{sig}}(t_3)\},
+\]
+
+<ul>
+  <li>fast oscillation 決定頻譜峰在 \( \omega_3 \) 軸上的位置。</li>
+  <li>envelope 決定 line width（與相干壽命相關）。</li>
+</ul>
+
+<hr />
+
+<h2>5. 為什麼只有 \( t_3 \) 不用「exhaustively sample」？</h2>
+
+<p><strong>一句話版本：</strong></p>
+<p>
+\( t_3 \) 是樣品自然發光的「觀察時間軸」，而 \( t_1, t_2 \) 是實驗者設定的「控制時間軸」。
+</p>
+
+<h3>5.1 控制時間 vs. 觀察時間</h3>
+
+<ul>
+  <li>
+    <strong>\( t_1, t_2 \)：控制時間</strong><br />
+    由 delay stage 或電子相位決定脈衝何時打到樣品。  
+    在 \( t_1, t_2 \) 段樣品不主動發光，因此要知道其影響，只能：
+    <ul>
+      <li>改一個 \( t_1 \) 或 \( t_2 \)</li>
+      <li>做一次完整實驗</li>
+      <li>收一筆訊號</li>
+      <li>重複很多次 → 拼出 \( t_1, t_2 \) 空間</li>
+    </ul>
+  </li>
+  <li>
+    <strong>\( t_3 \)：觀察時間</strong><br />
+    第三個脈衝打完後，樣品進入發光狀態，偶極隨 \( t_3 \) 演化並持續輻射。  
+    只要「開始錄」，整段 \( t_3 \) 訊號自然展開 → 不用逐點掃描。
+  </li>
+</ul>
+
+<h3>5.2 鐘聲比喻</h3>
+
+<ul>
+  <li>\( t_1 \)：決定第一次與第二次敲鐘之間的間隔（這段沒有鐘聲）。</li>
+  <li>\( t_2 \)：決定第二次與第三次敲鐘之間的間隔（這段也沒有鐘聲）。</li>
+  <li>\( t_3 \)：第三次敲完後鐘自己響，你可以一次錄下整段回音。</li>
+</ul>
+
+<p>
+因此：對 \( t_1, t_2 \) 只能不斷「重來」；  
+而 \( t_3 \) 則是一段自然展開的時間序列，一次錄完即可。
+</p>
+
+<hr />
+
+<h2>6. Raw measurement vs. spectrum</h2>
+
+<p><strong>最原始的量測：</strong></p>
+
+\[
+E_{\text{sig}}(t_3; t_1, t_2)
+\]
+
+<p>對每組 \( (t_1, t_2) \)，都有一條 \( t_3 \) time trace。</p>
+
+<p><strong>對 \( t_3 \) 做 Fourier transform：</strong></p>
+
+\[
+S(t_1, t_2, \omega_3),
+\]
+
+<p>有時被稱為「raw spectrum」，尚未對 \( t_1 \) 做 FT 和 phase correction。</p>
+
+<p><strong>再對 \( t_1 \) 做 Fourier transform：</strong></p>
+
+\[
+S(\omega_1, t_2, \omega_3),
+\]
+
+<p>就是常見的 2DIR 資料立方體，每個 \( t_2 \) 對應一張 2D 光譜。</p>
+
+<hr />
+
+<h2>7. 如何快速解讀 2DIR cube？</h2>
+
+<p>給未來的自己一個 mental map：</p>
+
+<ul>
+  <li>\( \omega_1 \)：由 \( t_1 \) 相干而來 → 代表「最初吸收光的頻率」（excitation frequency）。</li>
+  <li>\( t_2 \)：population / 動力學時間 → 代表「在樓上待多久、如何放鬆或進行能量轉移」。</li>
+  <li>\( \omega_3 \)：由 \( t_3 \) 相干而來 → 代表「最後發光或再吸收的頻率」（emission / detection frequency）。</li>
+</ul>
+
+<p>行為上：</p>
+<ul>
+  <li>\( t_1, t_3 \) 方向：有 fast oscillation，反映樓層之間的光學相干。</li>
+  <li>\( t_2 \) 方向：多是慢變化，反映 population dynamics 和能量轉移。</li>
+</ul>
+
+<p>
+這樣看 \( S(\omega_1, t_2, \omega_3) \) 時，就能快速知道每個軸在講什麼物理。
+</p>
+
+</body>
+</html>
