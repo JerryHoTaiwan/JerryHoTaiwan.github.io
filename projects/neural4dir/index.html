@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="description" content="Efficient 4D infrared spectroscopy via neural field reconstruction and adaptive sampling." />
+  <meta name="keywords" content="Neural fields, 4D IR, 2DIR, spectroscopy, adaptive sampling, multidimensional spectroscopy" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Efficient 4D Infrared Spectroscopy via Neural Field Reconstruction and Adaptive Sampling</title>
+
+  <!-- Analytics (keep/remove as you prefer) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <!-- Fonts & CSS -->
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet" />
+  <link rel="stylesheet" href="./static/css/bulma.min.css" />
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css" />
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css" />
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css" />
+  <link rel="stylesheet" href="./static/css/index.css" />
+  <link rel="icon" href="./static/images/favicon.svg" />
+
+  <!-- JS -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+
+  <style>
+    .section-title { margin-bottom: 0.5rem; }
+    .section-subtitle { margin-top: 0; opacity: 0.8; }
+    .metric-tag { margin-right: .4rem; }
+    .img-caption { font-size: 0.9rem; opacity: 0.8; margin-top: .5rem; }
+    .video-wrapper { position: relative; padding-top: 56.25%; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+    .video-wrapper video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .carousel .item { text-align: center; }
+    .card.elevated { box-shadow: 0 10px 28px rgba(0,0,0,.10); border-radius: 16px; }
+    .is-narrow-text { max-width: 820px; margin: 0 auto; }
+    .hero-teaser img { border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,.12); }
+    .anchor-gap { scroll-margin-top: 80px; }
+    .table td, .table th { vertical-align: middle; }
+  </style>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow:1; justify-content:center;">
+      <a class="navbar-item" href="#top"><span class="icon"><i class="fas fa-home"></i></span></a>
+      <a class="navbar-item" href="#overview">Overview</a>
+      <a class="navbar-item" href="#method">Method</a>
+      <a class="navbar-item" href="#results">Results</a>
+      <a class="navbar-item" href="#sampling">Adaptive Sampling</a>
+      <div class="navbar-item has-dropdown is-hoverable">
+        <a class="navbar-link">More</a>
+        <div class="navbar-dropdown">
+          <a class="navbar-item" href="https://jerryhotaiwan.github.io">Home</a>
+          <a class="navbar-item" href="https://jerryhotaiwan.github.io/projects/diff_wave_optics/">DiffWaveOptics</a>
+          <!-- TODO: update these once you have links -->
+          <a class="navbar-item" href="https://github.com/JerryHoTaiwan">Code (coming soon)</a>
+          <a class="navbar-item" href="#">Paper (coming soon)</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<a id="top" class="anchor-gap"></a>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">
+            Efficient 4D Infrared Spectroscopy via Neural Field Reconstruction and Adaptive Sampling
+          </h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><a href="https://jerryhotaiwan.github.io">Chi-Jui (Jerry) Ho</a>, </span>
+            <span class="author-block">Harsh Bhakta, </span>
+            <span class="author-block">Xiong Wei, </span>
+            <span class="author-block"><a href="https://www.nickantipa.com">Nicholas Antipa</a></span>
+          </div>
+          <div class="is-size-6 publication-authors">
+            <span class="author-block">
+              Dept. of Electrical and Computer Engineering\,&nbsp;UC San Diego
+            </span><br/>
+            <span class="author-block">
+              Dept. of Chemistry and Biochemistry\,&nbsp;UC San Diego
+            </span>
+          </div>
+
+          <div class="publication-links" style="margin-top:1rem;">
+            <!-- TODO: update hrefs when paper/code are public -->
+            <span class="link-block">
+              <a href="#" class="external-link button is-normal is-rounded is-dark is-outlined" disabled>
+                <span class="icon"><i class="fas fa-file-pdf"></i></span><span>Paper (coming soon)</span>
+              </a>
+            </span>
+            <span class="link-block">
+              <a href="#" class="external-link button is-normal is-rounded is-dark is-outlined" disabled>
+                <span class="icon"><i class="ai ai-arxiv"></i></span><span>arXiv (coming soon)</span>
+              </a>
+            </span>
+            <span class="link-block">
+              <a href="https://github.com/JerryHoTaiwan" class="external-link button is-normal is-rounded is-dark">
+                <span class="icon"><i class="fab fa-github"></i></span><span>Code (coming soon)</span>
+              </a>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TEASER ===== -->
+<section class="hero-teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <div class="has-text-centered">
+        <!-- TODO: replace with your actual teaser figure -->
+        <img src="./static/images/neural4dir_teaser.png"
+             alt="Neural4DIR teaser: sparse 4D sampling and dense reconstruction"
+             style="width: 80%; height: auto;" />
+      </div>
+      <h2 class="subtitle has-text-centered" style="margin-top:1rem;">
+        Neural fields and active sampling enable dense 4D spectra reconstruction from sparse multidimensional IR measurements.
+      </h2>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ABSTRACT ===== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3 section-title">Abstract</h2>
+        <div class="content has-text-justified is-narrow-text">
+          <p>
+            Multidimensional infrared spectroscopy offers a window into ultrafast molecular dynamics through rich
+            vibrational couplings and dynamical patterns. However, acquiring these high-dimensional spectra is
+            time-consuming: when collecting 4D spectra—spatially and temporally resolved 2DIR—sampling densely across
+            all dimensions quickly becomes prohibitively slow or infeasible in practice.
+          </p>
+          <p>
+            To address this challenge, we introduce a neural representation framework to efficiently reconstruct dense
+            4D spectra from sparse experimental measurements. We model the continuous spectral field with a
+            coordinate-based multilayer perceptron that maps 4D coordinates to corresponding spectral intensities,
+            enabling the recovery of densely sampled spectra from limited observations.
+          </p>
+          <p>
+            Beyond passive reconstruction, we develop an active sampling strategy guided by reconstruction loss, which
+            adaptively selects the most informative sampling locations. Experimental results demonstrate that our method
+            faithfully recovers oscillatory and dynamical spectral features using only a fraction of the original
+            samples. By integrating neural fields with adaptive sampling, this work points toward practical
+            multidimensional measurements in ultrafast spectroscopy.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== OVERVIEW ===== -->
+<a id="overview" class="anchor-gap"></a>
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 section-title">Overview</h2>
+    <p class="section-subtitle">
+      4D infrared spectroscopy as a dense continuous field, reconstructed from sparse 4D samples.
+    </p>
+
+    <div class="columns is-variable is-6">
+      <!-- Text -->
+      <div class="column">
+        <div class="content">
+          <h3 class="title is-5">From gridded spectra to continuous fields</h3>
+          <p>
+            Conventional 2DIR and 4DIR experiments acquire spectra on a fixed grid in coherence times and frequencies.
+            Achieving high resolution along spatial $(y, x)$ and temporal/frequency $(t_2, \omega_1, \omega_3)$
+            axes leads to an explosion in the number of required measurements.
+          </p>
+          <p>
+            In Neural4DIR, we replace the discrete 4D grid with a continuous
+            <em>spectral field</em> parameterized by a neural network. Given sparse measurements in the
+            4D domain, the network learns a mapping
+            \[
+            (y, x, t_2, \omega_1, \omega_3) \mapsto I(y, x, t_2, \omega_1, \omega_3),
+            \]
+            enabling dense interpolation and extrapolation without scanning every location.
+          </p>
+          <p>
+            This representation allows us to decouple reconstruction fidelity from the raw sampling rate, and to query
+            the field at arbitrary resolutions for downstream analysis such as peak tracking, lineshape evolution,
+            and spatially resolved dynamics.
+          </p>
+        </div>
+      </div>
+
+      <!-- Figure -->
+      <div class="column">
+        <div class="card elevated">
+          <div class="card-image">
+            <figure class="image">
+              <!-- TODO: replace with an overview figure (e.g., pipeline) -->
+              <img src="./static/images/overview_pipeline.png"
+                   alt="Overview of Neural4DIR: sparse sampling, neural field, dense reconstruction" />
+            </figure>
+          </div>
+          <div class="card-content">
+            <p class="img-caption">
+              <strong>Neural4DIR overview.</strong>
+              Sparse 4D measurements sampled along spatial and spectroscopic axes are fit with a coordinate-based MLP
+              that represents the full 4D field. The learned neural field can be evaluated at arbitrary coordinates to
+              generate densely sampled spectra and derived visualizations.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== METHOD ===== -->
+<a id="method" class="anchor-gap"></a>
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 section-title">Method: Neural field reconstruction</h2>
+    <p class="section-subtitle">
+      Coordinate-based MLPs for oscillatory, multi-peak 4D spectra.
+    </p>
+
+    <div class="columns is-variable is-6">
+      <div class="column">
+        <div class="content">
+          <h3 class="title is-5">Neural representation of 4D spectra</h3>
+          <p>
+            We represent the 4D spectrum as a neural field:
+            a multilayer perceptron (MLP) that takes normalized coordinates in the 4D space and outputs complex-valued
+            or intensity spectra. Fourier features and peak-aware normalization can be incorporated to capture the
+            highly oscillatory structure and the strong amplitude imbalance between positive and negative peaks.
+          </p>
+          <p>
+            The model is trained by minimizing a reconstruction loss over the sparse set of observed coordinates,
+            with additional regularization terms that encourage smooth evolution along the waiting time and spatial axes.
+          </p>
+        </div>
+      </div>
+
+      <div class="column">
+        <div class="card elevated">
+          <div class="card-image">
+            <figure class="image">
+              <!-- TODO: replace with loss/architecture figure -->
+              <img src="./static/images/method_architecture.png"
+                   alt="Network architecture for Neural4DIR" />
+            </figure>
+          </div>
+          <div class="card-content">
+            <p class="img-caption">
+              <strong>Neural field architecture.</strong>
+              Input coordinates are embedded with positional encodings or Fourier features and passed through an MLP
+              to predict spectral amplitudes. The reconstruction loss is evaluated only on measured coordinates, while
+              the continuous field can be queried densely at test time.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== RESULTS ===== -->
+<a id="results" class="anchor-gap"></a>
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 section-title">Results: 4D reconstruction from sparse measurements</h2>
+    <p class="section-subtitle">
+      Neural4DIR reconstructs oscillatory peaks and dynamical features using a fraction of the original samples.
+    </p>
+
+    <div class="card elevated">
+      <div class="card-image results-figure">
+        <figure class="image">
+          <!-- TODO: replace with your main comparison figure -->
+          <img src="./static/images/results_grid.png"
+               alt="Comparison of ground-truth 4D slices vs. baseline interpolation vs. Neural4DIR" />
+        </figure>
+      </div>
+      <div class="card-content">
+        <p class="img-caption">
+          <strong>Reconstruction quality on 4D spectra.</strong>
+          Slices of the 4D spectrum are shown as 2D frequency–frequency maps at different waiting times and spatial
+          positions. Neural4DIR preserves diagonal and cross peaks, as well as their temporal beating patterns, even
+          when trained from aggressively subsampled measurements, outperforming conventional interpolation and compressed
+          sensing baselines.
+        </p>
+      </div>
+    </div>
+
+    <!-- Optional: per-dimension projections -->
+    <div class="columns is-variable is-6" style="margin-top:2rem;">
+      <div class="column">
+        <div class="card elevated">
+          <div class="card-image">
+            <figure class="image">
+              <!-- TODO: projection plot -->
+              <img src="./static/images/t2_projection.png"
+                   alt="t2 projections comparing ground truth and Neural4DIR" />
+            </figure>
+          </div>
+          <div class="card-content">
+            <p class="img-caption">
+              Temporal projections along the waiting time dimension show that Neural4DIR recovers oscillatory dynamics
+              with the correct phase and decay envelopes.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="column">
+        <div class="card elevated">
+          <div class="card-image">
+            <figure class="image">
+              <!-- TODO: spatial projection -->
+              <img src="./static/images/spatial_projection.png"
+                   alt="Spatial projections comparing ground truth and Neural4DIR" />
+            </figure>
+          </div>
+          <div class="card-content">
+            <p class="img-caption">
+              Spatial averages and profiles confirm that the model preserves spatially varying spectral content,
+              enabling spatially resolved 4DIR analysis from sparse data.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== ADAPTIVE SAMPLING ===== -->
+<a id="sampling" class="anchor-gap"></a>
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 section-title">Adaptive sampling strategy</h2>
+    <p class="section-subtitle">
+      Reconstruction-driven active sampling to prioritize informative 4D coordinates.
+    </p>
+
+    <div class="columns is-variable is-6">
+      <div class="column">
+        <div class="content">
+          <h3 class="title is-5">Loss-guided sampling</h3>
+          <p>
+            Instead of committing to a fixed sampling pattern, Neural4DIR alternates between reconstruction and
+            sampling. After fitting the current neural field, we evaluate reconstruction errors or acquisition utilities
+            over candidate coordinates and select the next batch of measurements at locations that maximize the expected
+            improvement in reconstruction quality.
+          </p>
+          <p>
+            This active paradigm naturally concentrates measurements near spectral peaks, along sharp features, or in
+            regions where temporal dynamics are most ambiguous, while avoiding redundant sampling in smooth or low-energy
+            regions.
+          </p>
+        </div>
+      </div>
+
+      <div class="column">
+        <div class="card elevated">
+          <div class="card-image">
+            <figure class="image">
+              <!-- TODO: sampling strategy visualization -->
+              <img src="./static/images/sampling_strategy.png"
+                   alt="Visualization of adaptive sampling pattern over 4D coordinates" />
+            </figure>
+          </div>
+          <div class="card-content">
+            <p class="img-caption">
+              <strong>Adaptive sampling.</strong>
+              Sampling density progressively concentrates around spectrally and temporally informative regions, reducing
+              the number of required measurements for a target reconstruction quality compared to uniform or heuristic
+              sampling schedules.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== BIBTEX ===== -->
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <p class="img-caption">
+      Preliminary entry &mdash; update journal / arXiv information when available.
+    </p>
+    <pre><code>@article{ho2025neural4dir,
+  title   = {Efficient 4D Infrared Spectroscopy via Neural Field Reconstruction and Adaptive Sampling},
+  author  = {Ho, Chi-Jui and Bhakta, Harsh and Wei, Xiong and Antipa, Nicholas},
+  journal = {In preparation},
+  year    = {2025}
+}</code></pre>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link" href="https://github.com/JerryHoTaiwan" class="external-link"><i class="fab fa-github"></i></a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website is licensed under a
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">
+              Creative Commons Attribution-ShareAlike 4.0 International License
+            </a>.
+          </p>
+          <p>
+            You may borrow the
+            <a href="https://github.com/nerfies/nerfies.github.io">source code</a>
+            of this website; please link back to this page in the footer.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ===== PAGE SCRIPTS ===== -->
+<script>
+  // Navbar burger for mobile
+  document.addEventListener('DOMContentLoaded', () => {
+    const burgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
+    burgers.forEach(b => {
+      b.addEventListener('click', () => {
+        const target = document.querySelector('.navbar-menu');
+        b.classList.toggle('is-active');
+        target.classList.toggle('is-active');
+      });
+    });
+  });
+
+  // Init all carousels
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.bulmaCarousel) {
+      bulmaCarousel.attach('.carousel', {
+        slidesToScroll: 1,
+        slidesToShow: 1,
+        autoplay: true,
+        loop: true,
+        pauseOnHover: true
+      });
+    }
+  });
+</script>
+
+</body>
+</html>
