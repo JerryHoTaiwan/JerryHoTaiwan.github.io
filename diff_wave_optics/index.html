@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="description" content="A Differentiable Wave Optics Model for End-to-End Computational Imaging System Optimization." />
+  <meta name="keywords" content="Computational Imaging, Wave Optics, Differentiable Programming" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A Differentiable Wave Optics Model for End-to-End Computational Imaging System Optimization</title>
+
+  <!-- Analytics (keep/remove as you prefer) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <!-- Fonts & CSS -->
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet" />
+  <link rel="stylesheet" href="./static/css/bulma.min.css" />
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css" />
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css" />
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css" />
+  <link rel="stylesheet" href="./static/css/index.css" />
+  <link rel="icon" href="./static/images/favicon.svg" />
+
+  <!-- JS -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+
+  <style>
+    /* Small helpers so it looks good out of the box */
+    .section-title { margin-bottom: 0.5rem; }
+    .section-subtitle { margin-top: 0; opacity: 0.8; }
+    .metric-tag { margin-right: .4rem; }
+    .img-caption { font-size: 0.9rem; opacity: 0.8; margin-top: .5rem; }
+    .video-wrapper { position: relative; padding-top: 56.25%; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+    .video-wrapper video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .carousel .item { text-align: center; }
+    .card.elevated { box-shadow: 0 10px 28px rgba(0,0,0,.10); border-radius: 16px; }
+    .is-narrow-text { max-width: 820px; margin: 0 auto; }
+    .hero-teaser img { border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,.12); }
+    .anchor-gap { scroll-margin-top: 80px; }
+  </style>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow:1; justify-content:center;">
+      <a class="navbar-item" href="#top"><span class="icon"><i class="fas fa-home"></i></span></a>
+      <a class="navbar-item" href="#overview">Overview</a>
+      <a class="navbar-item" href="#results">Results</a>
+      <a class="navbar-item" href="#gallery">PSFs & Images</a>
+      <a class="navbar-item" href="#evolution">Evolving Lenses</a>
+      <div class="navbar-item has-dropdown is-hoverable">
+        <a class="navbar-link">More</a>
+        <div class="navbar-dropdown">
+          <a class="navbar-item" href="https://jerryhotaiwan.github.io/diff_wave_optics/">DiffWaveOptics</a>
+          <a class="navbar-item" href="https://github.com/JerryHoTaiwan/DeepWaveOptics">Code</a>
+          <a class="navbar-item" href="https://arxiv.org/abs/2412.09774">Paper</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<a id="top" class="anchor-gap"></a>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">A Differentiable Wave Optics Model for End-to-End Computational Imaging System Optimization</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><a href="https://jerryhotaiwan.github.io">Chi-Jui Ho</a>, </span>
+            <span class="author-block"><a href="https://yashbelhe.github.io">Yash Belhe</a>, </span>
+            <span class="author-block"><a href="https://cse.ucsd.edu/people/faculty-profiles/steve-rotenberg">Steve Rotenberg</a>, </span>
+            <span class="author-block"><a href="https://cseweb.ucsd.edu/~ravir/">Ravi Ramamoorthi</a>, </span>
+            <span class="author-block"><a href="https://cseweb.ucsd.edu/~tzli/">Tzu-Mao Li</a>, </span>
+            <span class="author-block"><a href="https://www.nickantipa.com">Nick Antipa</a></span>
+          </div>
+          <div class="is-size-5 publication-authors"><span class="author-block">UC San Diego</span></div>
+          <div class="publication-links">
+            <span class="link-block"><a href="https://arxiv.org/abs/2412.09774" class="external-link button is-normal is-rounded is-dark"><span class="icon"><i class="fas fa-file-pdf"></i></span><span>Paper</span></a></span>
+            <span class="link-block"><a href="https://arxiv.org/abs/2412.09774" class="external-link button is-normal is-rounded is-dark"><span class="icon"><i class="ai ai-arxiv"></i></span><span>arXiv</span></a></span>
+            <span class="link-block"><a href="https://github.com/JerryHoTaiwan/DeepWaveOptics" class="external-link button is-normal is-rounded is-dark"><span class="icon"><i class="fab fa-github"></i></span><span>Code</span></a></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TEASER ===== -->
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <div class="has-text-centered">
+        <img src="./static/images/DiffWave.png" alt="Teaser Image" style="width: 80%; height: auto;" />
+      </div>
+      <h2 class="subtitle has-text-centered">
+        End-to-end optimized lens architectures and reconstruction models using ray and wave optics.
+      </h2>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ABSTRACT ===== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3 section-title">Abstract</h2>
+        <div class="content has-text-justified is-narrow-text">
+          <p>
+            End-to-end optimization, which integrates differentiable optics simulators with computational algorithms,
+            enables the joint design of hardware and software for data-driven imaging systems. However, existing
+            methods usually compromise physical accuracy by neglecting wave optics or off-axis effects due to the
+            high computational cost of modeling both aberration and diffraction. This limitation raises concerns
+            about the robustness of optimized designs. In this paper, we propose a differentiable optics simulator
+            that accurately and efficiently models aberration and diffraction in compound optics and allows us to
+            analyze the role and impact of diffraction in end-to-end optimization. Experimental results demonstrate
+            that compared with ray-optics-based optimization, diffraction-aware optimization improves system
+            robustness to diffraction blur. Through accurate wave optics modeling, we also apply the simulator
+            to optimize the Fizeau interferometer and freeform optics elements.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+  <!-- ===== (a) PRIOR WORK + PIPELINE ===== -->
+  <a id="overview" class="anchor-gap"></a>
+  <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 section-title">Simulation Pipeline</h2>
+      <p class="section-subtitle">Where we differ from prior art, and how our differentiable wave-optics pipeline works.</p>
+
+      <div class="columns is-variable is-6">
+        <!-- Text -->
+        <div class="column">
+          <div class="content">
+            <h3 class="title is-5">Prior approaches</h3>
+            <ul>
+              <li><strong>Ray-only end-to-end:</strong> Fast and scalable, but ignores diffraction and off-axis phase—designs can be brittle under aperture/NA changes.</li>
+              <li><strong>Paraxial / stationary PSF models:</strong> Capture limited diffraction under simplifying assumptions; accuracy degrades in compound optics and with field curvature.</li>
+              <li><strong>ASM-based propagation:</strong> Efficient in the far/near field, but accuracy becomes sensitive when wavefront phase varies rapidly due to strong aberrations or tight sampling constraints.</li>
+            </ul>
+            <p>
+              <strong>Our approach:</strong> We combine <em>aberration-aware ray tracing</em> (for precise wavefront/phase on a reference sphere) with <em>Rayleigh–Sommerfeld</em> free-space propagation for physically accurate PSFs, while retaining differentiability and off-grid sampling on the wavefront map.
+            </p>
+          </div>
+        </div>
+
+        <!-- Figure -->
+        <div class="column">
+          <div class="card elevated">
+            <div class="card-image pipeline-figure">
+              <figure class="image">
+                <img src="./static/images/pipeline.pdf" alt="Differentiable wave-optics pipeline" />
+              </figure>
+            </div>
+            <div class="card-content">
+              <p class="img-caption">
+                Rays from a point source <em>o</em> are traced to the reference sphere at the exit pupil (XP), yielding intersections {&rho;<sub>i</sub>} and a phase map on the wavefront. We then propagate this complex field to the sensor via Rayleigh–Sommerfeld integration to form a PSF, which feeds the image formation, loss, and gradient steps.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+<!-- ===== (b) RESULTS: SINGLE-FIGURE COMPARISON ===== -->
+<a id="results" class="anchor-gap"></a>
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 section-title">Results: single-figure comparison</h2>
+    <p class="section-subtitle">
+      Array view comparing reference PSFs with competitors and ours.
+    </p>
+
+    <div class="card elevated">
+      <div class="card-image results-figure">
+        <figure class="image">
+          <!-- Replace with your single array/grid figure -->
+          <img src="./static/images/psf_cmp.pdf"
+               alt="Grid comparison of PSFs: Reference vs Ray-only vs Hybrid vs Ours" />
+        </figure>
+      </div>
+      <div class="card-content">
+        <p class="img-caption">
+          <strong>PSFs rendered by different simulators under different conditions.</strong> 
+          Unlike existing simulators, ours avoids on-grid wavefront discretization and remains robust to defocus and large FoVs, 
+          achieving the highest accuracy and efficiency. The tuple (SSIM, ray count, time in sec.) highlights the best performance in red. 
+          As the Airy disk does not use ray-tracing, we skip its ray count and do not compare its time with others. Zoom in for details.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== (c) SIMULATOR GALLERY: LENSES, PSFs & IMAGES ===== -->
+<a id="gallery" class="anchor-gap"></a>
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 section-title">Simulator gallery: lens configurations, PSFs & images</h2>
+    <p class="section-subtitle">
+      Two different lenses (spherical vs. aspheric). Each row shows configuration → on-axis PSF → off-axis PSF → rendered image.
+    </p>
+
+    <div class="table-container">
+      <table class="table is-fullwidth is-bordered is-hoverable has-text-centered">
+        <thead>
+          <tr>
+            <th>Lens configuration</th>
+            <th>On-axis PSF</th>
+            <th>Off-axis PSF</th>
+            <th>Rendered image</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Row 1: Single spherical lens -->
+          <tr>
+            <td>
+              <figure class="image">
+                <img src="./static/lens/spherical_config.png" alt="Configuration of single spherical lens" />
+                <p class="img-caption">Spherical configuration</p>
+              </figure>
+            </td>
+            <td>
+              <figure class="image">
+                <img src="./static/psf/spherical_onaxis.png" alt="Spherical lens on-axis PSF" />
+                <p class="img-caption">On-axis PSF</p>
+              </figure>
+            </td>
+            <td>
+              <figure class="image">
+                <img src="./static/psf/spherical_offaxis.png" alt="Spherical lens off-axis PSF" />
+                <p class="img-caption">Off-axis PSF</p>
+              </figure>
+            </td>
+            <td>
+              <figure class="image">
+                <img src="./static/ifm/spherical_image.png" alt="Rendered image spherical lens" />
+                <p class="img-caption">Rendered image</p>
+              </figure>
+            </td>
+          </tr>
+
+          <!-- Row 2: Complex aspheric lens -->
+          <tr>
+            <td>
+              <figure class="image">
+                <img src="./static/lens/aspheric_config.png" alt="Configuration of complex aspheric lens" />
+                <p class="img-caption">Aspheric configuration</p>
+              </figure>
+            </td>
+            <td>
+              <figure class="image">
+                <img src="./static/psf/aspheric_onaxis.png" alt="Aspheric lens on-axis PSF" />
+                <p class="img-caption">On-axis PSF</p>
+              </figure>
+            </td>
+            <td>
+              <figure class="image">
+                <img src="./static/psf/aspheric_offaxis.png" alt="Aspheric lens off-axis PSF" />
+                <p class="img-caption">Off-axis PSF</p>
+              </figure>
+            </td>
+            <td>
+              <figure class="image">
+                <img src="./static/ifm/aspheric_image.png" alt="Rendered image aspheric lens" />
+                <p class="img-caption">Rendered image</p>
+              </figure>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Add this CSS in your <style> block -->
+<style>
+  .table td, .table th {
+    vertical-align: middle; /* center vertically */
+  }
+</style>
+
+<!-- ===== (d) EVOLVING LENS ARCHITECTURES ===== -->
+<a id="evolution" class="anchor-gap"></a>
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 section-title">Evolving lens architectures over iterations</h2>
+    <p class="section-subtitle">Reference scene alongside lens configuration and recovered image animations.</p>
+
+    <!-- Scoped styles just for this block -->
+    <style>
+      /* Equalize media height across image + videos */
+      .evo-row { --media-h: 320px; }
+      @media (max-width: 768px) { .evo-row { --media-h: 220px; } }
+      @media (min-width: 1216px) { .evo-row { --media-h: 360px; } }
+
+      .evo-row .cell {
+        display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+      }
+
+      .evo-row .thumb,
+      .evo-row video {
+        display:block;
+        height: var(--media-h);
+        width: auto;
+        max-width: 100%;
+        object-fit: contain;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.08);
+      }
+
+      .evo-row .caption { margin-top: .5rem; font-size: 0.9rem; opacity: .85; }
+
+      /* Toolbar */
+      .evo-controls { margin-top:.75rem; display:flex; gap:.5rem; align-items:center; justify-content:center; flex-wrap:wrap; }
+    </style>
+
+    <div class="columns is-variable is-6 evo-row">
+      <!-- Left: Reference scene (static) -->
+      <div class="column cell">
+        <h3 class="title is-6">Reference scene</h3>
+        <img class="thumb" src="./static/images/reference_scene.png" alt="Reference scene" />
+        <div class="caption">Ground-truth/target image used for evaluation.</div>
+      </div>
+
+      <!-- Middle: Lens animation (with native controls) -->
+      <div class="column cell">
+        <h3 class="title is-6">Lens layout evolution</h3>
+        <video id="vid-lens" controls playsinline>
+          <source src="./static/videos/lens_evolution.mp4" type="video/mp4" />
+          <source src="./static/videos/lens_evolution.webm" type="video/webm" />
+        </video>
+        <div class="caption">Optimizer morphs lens groups over iterations.</div>
+      </div>
+
+      <!-- Right: Recovered image animation (with native controls) -->
+      <div class="column cell">
+        <h3 class="title is-6">Image recovery evolution</h3>
+        <video id="vid-img" controls playsinline>
+          <source src="./static/videos/img_evolution.mp4" type="video/mp4" />
+          <source src="./static/videos/img_evolution.webm" type="video/webm" />
+        </video>
+        <div class="caption">Reconstruction quality improves across iterations.</div>
+      </div>
+    </div>
+
+    <!-- Optional: unified toolbar that controls both videos -->
+    <div class="evo-controls">
+      <button id="evo-play" class="button is-small is-info">Play</button>
+      <button id="evo-pause" class="button is-small">Pause</button>
+      <button id="evo-restart" class="button is-small">Restart</button>
+
+      <label style="display:flex; align-items:center; gap:.35rem;">
+        Speed
+        <select id="evo-speed" class="select is-small">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="0.75">0.75×</option>
+          <option value="1" selected>1×</option>
+        </select>
+      </label>
+
+      <label class="checkbox" style="margin-left:.5rem;">
+        <input id="evo-mute" type="checkbox" /> Muted
+      </label>
+
+      <label class="checkbox" style="margin-left:.5rem;">
+        <input id="evo-sync" type="checkbox" checked /> Sync
+      </label>
+    </div>
+  </div>
+</section>
+
+<!-- Tiny script for the unified toolbar -->
+<script>
+(function(){
+  const v1 = document.getElementById('vid-lens');
+  const v2 = document.getElementById('vid-img');
+  if (!v1 || !v2) return;
+
+  const btnPlay   = document.getElementById('evo-play');
+  const btnPause  = document.getElementById('evo-pause');
+  const btnRestart= document.getElementById('evo-restart');
+  const selSpeed  = document.getElementById('evo-speed');
+  const cbMute    = document.getElementById('evo-mute');
+  const cbSync    = document.getElementById('evo-sync');
+
+  function playAll(){ v1.play(); v2.play(); }
+  function pauseAll(){ v1.pause(); v2.pause(); }
+  function restartAll(){ v1.currentTime = 0; v2.currentTime = 0; playAll(); }
+
+  function setRate(r){ v1.playbackRate = r; v2.playbackRate = r; }
+  function setMute(m){ v1.muted = m; v2.muted = m; }
+
+  if (btnPlay)    btnPlay.addEventListener('click', playAll);
+  if (btnPause)   btnPause.addEventListener('click', pauseAll);
+  if (btnRestart) btnRestart.addEventListener('click', restartAll);
+  if (selSpeed)   selSpeed.addEventListener('change', e => setRate(parseFloat(e.target.value)));
+  if (cbMute)     cbMute.addEventListener('change', e => setMute(e.target.checked));
+
+  // Simple sync loop (keeps vids within ~50ms when playing)
+  function syncTick(){
+    if (cbSync && cbSync.checked && !v1.paused && !v2.paused) {
+      const dt = v1.currentTime - v2.currentTime;
+      if (Math.abs(dt) > 0.05) v2.currentTime = v1.currentTime;
+    }
+    requestAnimationFrame(syncTick);
+  }
+  requestAnimationFrame(syncTick);
+})();
+</script>
+
+  <!-- ===== ACKNOWLEDGMENTS ===== -->
+  <section class="section ack-section">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3">Acknowledgments</h2>
+      <div class="content">
+        <p>
+          This project builds on the excellent work of the
+          <a href="https://github.com/singer-yang/DeepLens">DeepLens</a> and DiffOptics frameworks developed by
+          Xinge Yang <em>et al.</em>. Their differentiable ray–wave model provided the foundation for extending this project toward end-to-end optimization of computational imaging systems.
+          We gratefully acknowledge their contributions and encourage readers to also cite their work:
+        </p>
+        <pre><code>@article{yang2024end,
+  title={End-to-End Hybrid Refractive-Diffractive Lens Design with Differentiable Ray-Wave Model},
+  author={Yang, Xinge and Souza, Matheus and Wang, Kunyi and Chakravarthula, Praneeth and Fu, Qiang and Heidrich, Wolfgang},
+  journal={arXiv preprint arXiv:2406.00834},
+  year={2024}
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+<!-- ===== BIBTEX ===== -->
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{ho2024differentiable,
+  title={A Differentiable Wave Optics Model for End-to-End Computational Imaging System Optimization},
+  author={Ho, Chi-Jui and Belhe, Yash and Rotenberg, Steve and Ramamoorthi, Ravi and Li, Tzu-Mao and Antipa, Nicholas},
+  journal={arXiv preprint arXiv:2412.09774},
+  year={2024}
+}</code></pre>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link" href="https://arxiv.org/abs/2412.09774" class="external-link"><i class="fas fa-file-pdf"></i></a>
+      <a class="icon-link" href="https://github.com/JerryHoTaiwan" class="external-link"><i class="fab fa-github"></i></a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative
+            Commons Attribution-ShareAlike 4.0 International License</a>.
+          </p>
+          <p>
+            You may borrow the <a href="https://github.com/nerfies/nerfies.github.io">source code</a> of this website; please link back to this page in the footer.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ===== PAGE SCRIPTS ===== -->
+<script>
+  // Navbar burger for mobile
+  document.addEventListener('DOMContentLoaded', () => {
+    const burgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
+    burgers.forEach(b => {
+      b.addEventListener('click', () => {
+        const target = document.querySelector('.navbar-menu');
+        b.classList.toggle('is-active');
+        target.classList.toggle('is-active');
+      });
+    });
+  });
+
+  // Init all carousels
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.bulmaCarousel) {
+      bulmaCarousel.attach('.carousel', {
+        slidesToScroll: 1,
+        slidesToShow: 1,
+        autoplay: true,
+        loop: true,
+        pauseOnHover: true
+      });
+    }
+  });
+
+  // Simple scrubber for iteration PNG sequence
+  (function(){
+    const rng = document.getElementById('evo-range');
+    const img = document.getElementById('evo-img');
+    if(!rng || !img) return;
+    rng.addEventListener('input', () => {
+      const k = String(rng.value).padStart(3,'0');
+      img.src = `./static/evolution/frame_${k}.png`;
+      img.alt = `Iteration ${rng.value}`;
+    });
+  })();
+</script>
+
+</body>
+</html>
