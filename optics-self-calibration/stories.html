@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Six Stories | Blind Lens Self-Calibration</title>
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-page="stories.html">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="index.html">Blind Lens Self-Calibration</a>
+        <nav class="page-nav">
+          <a href="index.html">Home</a>
+          <a href="method.html">Method</a>
+          <a class="active" href="stories.html">Six Stories</a>
+          <a href="benchmark.html">Benchmarks</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="panel">
+        <h1>The six empirical stories</h1>
+        <p>
+          The project is easiest to understand as six linked findings. Each story combines the
+          main observation, the supporting numbers, and the interpretation that matters for inverse
+          problems and computational imaging.
+        </p>
+      </section>
+
+      <section class="story panel">
+        <div class="story-header">
+          <span class="story-tag">Story 1</span>
+          <h2>Self-calibration works under unknown perturbation</h2>
+        </div>
+        <p>
+          Blind restoration succeeds even though the true perturbation lies outside the recoverable
+          physical parameterization.
+        </p>
+        <p>
+          The best in-family physical method, <code>Camera-S4 self-calib</code>, reaches
+          <code>22.74 dB</code> or <code>Delta PSNR = -0.36 dB</code>. By contrast,
+          <code>Motion-blur Blind-DPS</code> reaches <code>27.18 dB</code> or
+          <code>+4.08 dB</code>. The useful target is therefore not the exact physical lens state
+          but a PSF estimate that helps restoration.
+        </p>
+        <div class="figure-grid figure-grid-3">
+          <figure>
+            <img src="assets/figures/blind_dps_perturbation_sweep.png" alt="Blind-DPS perturbation sweep" />
+            <figcaption>Behavior across perturbation strength.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/figures/kernel_prior_comparison_v6.png" alt="Kernel prior comparison v6" />
+            <figcaption>Main unknown-perturbation comparison.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/figures/final_pipeline_summary.png" alt="Final pipeline summary" />
+            <figcaption>Pipeline-level summary of the result.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="story panel">
+        <div class="story-header">
+          <span class="story-tag">Story 2</span>
+          <h2>Image prior value is much larger than PSF knowledge value</h2>
+        </div>
+        <ul>
+          <li><code>TV-ADMM</code> with GT PSF: <code>-1.09 dB</code></li>
+          <li><code>Wiener</code> with GT PSF: <code>-2.17 dB</code></li>
+          <li><code>Oracle A</code> with GT PSF + FFHQ image prior: <code>+3.70 dB</code></li>
+          <li><code>Motion-blur Blind-DPS</code> with a wrong PSF family + FFHQ image prior: <code>+4.08 dB</code></li>
+        </ul>
+        <p>
+          The jump from the best classical non-blind method to Oracle A is roughly
+          <code>+4.79 dB</code>. The gap between Oracle A and the best blind result is only about
+          <code>0.38 dB</code>. In this regime, image-manifold information dominates exact kernel
+          knowledge.
+        </p>
+        <figure class="figure-wide">
+          <img src="assets/figures/image_prior_vs_psf_knowledge.png" alt="Image prior versus PSF knowledge" />
+          <figcaption>Quantifying the relative value of image priors and PSF knowledge.</figcaption>
+        </figure>
+      </section>
+
+      <section class="story panel">
+        <div class="story-header">
+          <span class="story-tag">Story 3</span>
+          <h2>The domain-specific optical PSF prior is harmful in joint blind sampling</h2>
+        </div>
+        <ul>
+          <li><code>Motion-blur Blind-DPS</code>: <code>+4.08 dB</code>, <code>4.34e-07</code> kernel MSE</li>
+          <li><code>Optical-v2 Blind-DPS</code>: <code>-2.24 dB</code>, <code>1.57e-07</code> kernel MSE</li>
+        </ul>
+        <p>
+          The optical prior gets a lower kernel MSE but a much worse image. The joint chains enter
+          a feedback loop:
+        </p>
+        <div class="equation-block">
+          <code>diffuse k -&gt; blurry x -&gt; lower residual for diffuse k -&gt; even more diffuse k</code>
+        </div>
+        <p>
+          A narrow but wrong prior is worse than a broad but weakly regularizing one when the
+          measurement term is shared by both chains.
+        </p>
+        <div class="figure-grid figure-grid-3">
+          <figure>
+            <img src="assets/figures/psf_visual_comparison.png" alt="PSF visual comparison" />
+            <figcaption>GT, motion-blur, and optical PSF morphology.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/figures/kernel_prior_comparison_v6.png" alt="Kernel prior comparison v6 repeated" />
+            <figcaption>Optical-prior failure in the full comparison.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/figures/psf_comparison_100k.png" alt="PSF comparison 100k" />
+            <figcaption>The 100k optical checkpoint remains too diffuse.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="story panel">
+        <div class="story-header">
+          <span class="story-tag">Story 4</span>
+          <h2>The iterative refinement ceiling is set by image model quality</h2>
+        </div>
+        <p>
+          Alternating refinement improves the hybrid pipeline, but only up to a hard ceiling around
+          <code>+3.75 dB</code>.
+        </p>
+        <p>
+          Starting from the ECCV24 kernel, the result improves from <code>+3.18 dB</code> to
+          <code>+3.75 dB</code>. Starting from the much better optical 40k seed still ends at
+          <code>+3.75 dB</code>, even though the kernel MSE improves to <code>9.22e-08</code>.
+          Once the kernel is accurate enough, the bottleneck is the image prior.
+        </p>
+        <div class="figure-grid figure-grid-2">
+          <figure>
+            <img src="assets/figures/iterative_refinement_convergence.png" alt="Iterative refinement convergence" />
+            <figcaption>Convergence and saturation of iterative refinement.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/figures/kernel_prior_comparison_v6.png" alt="Kernel prior comparison v6 repeated again" />
+            <figcaption>Final comparison including refinement.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="story panel">
+        <div class="story-header">
+          <span class="story-tag">Story 5</span>
+          <h2>A natural image is a poor PSF calibration target in the observability sense</h2>
+        </div>
+        <ul>
+          <li><code>Blind-DPS</code> on USAF: <code>+0.90 dB</code>, <code>1.14e-06</code> kernel MSE</li>
+          <li><code>Oracle A -- USAF target</code>: <code>PSNR(y_n) = 9.01 dB</code>, <code>PSNR(restored) = 10.49 dB</code>, <code>Delta PSNR = +1.48 dB</code></li>
+        </ul>
+        <p>
+          The FFHQ image prior is mismatched to binary edge patterns, so even the oracle result on
+          USAF trails the natural-image oracle by <code>2.22 dB</code>. Subtle PSF differences
+          live in high spatial frequencies, but the blur destroys exactly those frequencies.
+        </p>
+        <figure class="figure-wide">
+          <img src="assets/figures/usaf_experiment.png" alt="USAF experiment" />
+          <figcaption>USAF target recovery and PSF observability failure.</figcaption>
+        </figure>
+      </section>
+
+      <section class="story panel">
+        <div class="story-header">
+          <span class="story-tag">Story 6</span>
+          <h2>Motion-blur Blind-DPS is robust across images</h2>
+        </div>
+        <ul>
+          <li><code>00000.png</code>: <code>+4.08 dB</code>, <code>4.34e-07</code></li>
+          <li><code>00001.png</code>: <code>+3.58 dB</code>, <code>5.54e-07</code></li>
+          <li><code>00002.png</code>: <code>+3.81 dB</code>, <code>7.36e-07</code></li>
+          <li><code>00003.png</code>: <code>+4.74 dB</code>, <code>6.72e-07</code></li>
+        </ul>
+        <p>
+          The mean is <code>+4.05 dB</code> with standard deviation <code>0.43 dB</code>. Kernel
+          MSE is also consistent, with mean <code>5.99e-07</code> and standard deviation
+          <code>1.15e-07</code>. The best result is therefore representative rather than lucky.
+        </p>
+        <figure class="figure-wide">
+          <img src="assets/figures/blind_dps_reproducibility.png" alt="Blind DPS reproducibility" />
+          <figcaption>Reproducibility across four FFHQ faces.</figcaption>
+        </figure>
+      </section>
+    </main>
+
+    <script src="main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Benchmarks | Blind Lens Self-Calibration</title>
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-page="benchmark.html">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="index.html">Blind Lens Self-Calibration</a>
+        <nav class="page-nav">
+          <a href="index.html">Home</a>
+          <a href="method.html">Method</a>
+          <a href="stories.html">Six Stories</a>
+          <a class="active" href="benchmark.html">Benchmarks</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="panel">
+        <h1>Classical deconvolution benchmark</h1>
+        <p>
+          The classical benchmark was supposed to provide an upper bound by giving each method the
+          exact GT PSF. Instead it demonstrates why the image prior is necessary.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Best params</th>
+                <th>Face Delta PSNR</th>
+                <th>USAF Delta PSNR</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Wiener</td><td>SNR = 30</td><td>-2.17 dB</td><td>-0.53 dB</td></tr>
+              <tr><td>Richardson-Lucy</td><td>20 iters</td><td>-8.59 dB</td><td>-1.19 dB</td></tr>
+              <tr><td>TV-ADMM</td><td>lam = 0.10</td><td>-1.09 dB</td><td>-0.35 dB</td></tr>
+              <tr><td>DPS Oracle A</td><td>GT PSF, T = 1000</td><td>+3.70 dB</td><td>+1.48 dB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>PSF type</th>
+                <th>PSNR(y_n)</th>
+                <th>TV-ADMM Delta PSNR</th>
+                <th>Wiener Delta PSNR</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>GT optical (spread 6.97 px)</td><td>23.10 dB</td><td>-1.09 dB</td><td>-2.17 dB</td></tr>
+              <tr><td>Motion-blur (intensity 0.5)</td><td>20.24 dB</td><td>+0.00 dB</td><td>-1.39 dB</td></tr>
+              <tr><td>Gaussian (sigma 3.0 px)</td><td>25.94 dB</td><td>+0.20 dB</td><td>-0.40 dB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The Fourier-domain reason is straightforward: the optical PSF is a severe low-pass
+          filter, so classical inversion divides by very small values exactly where the
+          measurement SNR is worst. That instability is structural, not a tuning issue.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>Full method comparison summary</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Approach</th>
+                <th>Method</th>
+                <th>PSNR</th>
+                <th>Delta PSNR</th>
+                <th>Kernel MSE</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Parametric calibration</td><td>No calibration (nominal PSF)</td><td>22.53</td><td>-0.57</td><td>3.69e-06</td></tr>
+              <tr><td>Parametric calibration</td><td>Camera-S4 self-calib</td><td>22.74</td><td>-0.36</td><td>1.71e-04</td></tr>
+              <tr><td>Joint blind diffusion</td><td>Motion-blur Blind-DPS</td><td>27.18</td><td>+4.08</td><td>4.34e-07</td></tr>
+              <tr><td>Joint blind diffusion</td><td>Optical-v2 Blind-DPS</td><td>20.86</td><td>-2.24</td><td>1.57e-07</td></tr>
+              <tr><td>Kernel diffusion</td><td>Kernel-Diff ECCV24 (motion-blur ckpt)</td><td>21.56</td><td>-1.54</td><td>1.32e-06</td></tr>
+              <tr><td>Kernel diffusion</td><td>Kernel-Diff optical + gradient</td><td>23.18</td><td>+0.08</td><td>4.13e-05</td></tr>
+              <tr><td>Kernel diffusion</td><td>Kernel-Diff optical, no gradient</td><td>21.76</td><td>-1.34</td><td>2.77e-07</td></tr>
+              <tr><td>Hybrid pipeline</td><td>Hybrid DPS + ECCV24 kernel</td><td>26.28</td><td>+3.18</td><td>1.32e-06</td></tr>
+              <tr><td>Hybrid pipeline</td><td>Hybrid DPS + optical kernel (40k)</td><td>18.84</td><td>-4.26</td><td>2.82e-07</td></tr>
+              <tr><td>Hybrid pipeline</td><td>Optical KD 40k + DPS (sequential)</td><td>19.68</td><td>-3.42</td><td>2.77e-07</td></tr>
+              <tr><td>Hybrid pipeline</td><td>Optical KD 100k + DPS (sequential)</td><td>16.81</td><td>-6.29</td><td>2.96e-07</td></tr>
+              <tr><td>Hybrid pipeline</td><td>Optical KD 115k + DPS (coupled)</td><td>19.28</td><td>-3.82</td><td>6.72e-07</td></tr>
+              <tr><td>Hybrid pipeline</td><td>Hybrid DPS + KernelUNet optical (5k)</td><td>12.78</td><td>-10.32</td><td>6.80e-07</td></tr>
+              <tr><td>Hybrid pipeline</td><td>Hybrid DPS + KernelUNet optical (10k)</td><td>12.79</td><td>-10.31</td><td>6.79e-07</td></tr>
+              <tr><td>Hybrid pipeline</td><td>Hybrid DPS + KernelUNet optical (80k)</td><td>15.65</td><td>-7.45</td><td>--</td></tr>
+              <tr><td>Iterative refinement</td><td>Hybrid DPS + ECCV24 + iterative refinement (5x)</td><td>26.84</td><td>+3.75</td><td>5.01e-07</td></tr>
+              <tr><td>Iterative refinement</td><td>Iterative refinement, optical 40k seed</td><td>26.84</td><td>+3.75</td><td>9.22e-08</td></tr>
+              <tr><td>Oracle reference</td><td>Oracle A (kernel = GT, free image)</td><td>26.80</td><td>+3.70</td><td>0</td></tr>
+              <tr><td>Oracle reference</td><td>Oracle A -- USAF target</td><td>10.49</td><td>+1.48</td><td>0</td></tr>
+              <tr><td>Oracle reference</td><td>Oracle B (image = clean, free kernel, MB)</td><td>--</td><td>--</td><td>3.25e-07</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Open questions and next directions</h2>
+        <ul>
+          <li>Can a better image diffusion model raise the <code>+3.75 dB</code> ceiling?</li>
+          <li>Can an optical PSF prior be made useful without triggering the feedback loop?</li>
+          <li>What changes when the PSF is spatially varying?</li>
+          <li>How well do these conclusions transfer to measured real images?</li>
+        </ul>
+        <p>
+          The main unresolved scientific issue is now clear: once the kernel is good enough, image
+          modeling quality becomes the dominant bottleneck.
+        </p>
+      </section>
+    </main>
+
+    <script src="main.js"></script>
+  </body>
+</html>

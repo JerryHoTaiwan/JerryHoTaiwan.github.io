@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Method | Blind Lens Self-Calibration</title>
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-page="method.html">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="index.html">Blind Lens Self-Calibration</a>
+        <nav class="page-nav">
+          <a href="index.html">Home</a>
+          <a class="active" href="method.html">Method</a>
+          <a href="stories.html">Six Stories</a>
+          <a href="benchmark.html">Benchmarks</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="panel">
+        <h1>Problem statement and motivation</h1>
+        <p>
+          Lens self-calibration asks whether the effective point spread function, or PSF, of an
+          optical system can be inferred directly from an observed degraded image, without access to
+          a calibration target or repeated measurements. Here the input is a single noisy blurred
+          image <code>y_n</code> and the goal is to recover both the latent clean image
+          <code>x_clean</code> and the unknown kernel <code>k</code>.
+        </p>
+        <div class="equation-block">
+          <code>y = k * x + n</code>
+        </div>
+        <p>
+          The problem is ill-posed because many image-kernel pairs can explain the same
+          observation. In the Fourier domain, <code>Y(w) = K(w) X(w) + N(w)</code>, so attenuation
+          in <code>K(w)</code> at high frequencies can always be traded against a different estimate
+          of <code>X(w)</code>. This is the core ambiguity of single-image blind deconvolution.
+        </p>
+        <p>
+          The optics setting makes the problem practically important because deployed lenses differ
+          from nominal design due to manufacturing tolerances, decenter, tilt, spacing changes,
+          thermal drift, and perturbations not exposed by the calibration model.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>Unknown perturbation outside the assumed model</h2>
+        <p>
+          The specific challenge in this study is model misspecification. The ground-truth
+          perturbation includes:
+        </p>
+        <ul>
+          <li><code>Delta c2 = -0.010</code></li>
+          <li><code>Delta c4 = -0.002</code></li>
+          <li><code>tilt_x = tilt_y = 0.010 rad</code></li>
+        </ul>
+        <p>
+          But the <code>CameraLensS4</code> calibration interface only exposes <code>c4</code>,
+          tilt, and <code>d_sensor</code>. Surface-2 curvature is not recoverable, which means
+          exact physical self-calibration is impossible by construction.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>Blind-DPS formulation</h2>
+        <p>
+          The main blind method is a coupled diffusion posterior sampler with two DDPM chains:
+        </p>
+        <ul>
+          <li>an image DDPM for <code>x</code></li>
+          <li>a kernel DDPM for <code>k</code></li>
+        </ul>
+        <p>
+          At each step the method predicts denoised states <code>x_hat_0</code> and
+          <code>k_hat_0</code> and combines prior scores with measurement consistency:
+        </p>
+        <div class="equation-block">
+          <code>grad log p(x_t | y_n) ~= grad log p(x_t) + grad log p(y_n | x_hat_0, k_hat_0)</code><br />
+          <code>grad log p(k_t | y_n) ~= grad log p(k_t) + grad log p(y_n | x_hat_0, k_hat_0)</code>
+        </div>
+        <p>
+          The shared residual is <code>r = || y_n - conv(x_hat_0, k_hat_0) ||_2</code>, and the
+          measurement gradients are computed with respect to each chain. Both are scaled by
+          <code>sqrt(alpha_bar_t)</code>. A key implementation detail from the handoff is that the
+          correction must be applied to <code>out["sample"]</code>, not directly to
+          <code>x_t</code>.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>Iterative refinement formulation</h2>
+        <p>
+          The strongest hybrid result avoids unstable full coupling. Starting from an initial
+          kernel estimate <code>k^(0)</code>, it alternates:
+        </p>
+        <ol>
+          <li>non-blind image DPS with fixed kernel <code>k^(r)</code></li>
+          <li>direct kernel fitting with fixed image <code>x^(r+1)</code></li>
+        </ol>
+        <div class="equation-block">
+          <code>k^(r+1) = argmin_k || y_n - op.forward(x^(r+1), k) ||_2</code>
+        </div>
+        <p>
+          This turns the problem into alternating projection between the image manifold implied by
+          the diffusion prior and the measurement-consistent kernel set implied by gradient-based
+          fitting.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>Experimental setup</h2>
+        <p>
+          The optical system is a Canon EF 40mm f/2.8 lens represented in DeepLens as an 11-surface
+          model. The scene is a <code>256 x 256</code> FFHQ face with additive Gaussian noise
+          <code>sigma = 0.01</code>. The degraded observation has
+          <code>PSNR(y_n) = 23.10 dB</code>.
+        </p>
+        <p>
+          The GT PSF is a smooth diffuse blob with weighted spread <code>6.97 px</code>. This is
+          not a sparse line kernel. It is exactly the kind of blur for which classical inversion is
+          unstable because high frequencies are strongly attenuated.
+        </p>
+        <p>The primary metrics are:</p>
+        <ul>
+          <li><code>PSNR(restored)</code></li>
+          <li><code>Delta PSNR = PSNR(restored) - PSNR(y_n)</code></li>
+          <li><code>Kernel MSE</code> versus the GT PSF</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="main.js"></script>
+  </body>
+</html>

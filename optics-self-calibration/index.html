@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blind Lens Self-Calibration</title>
+    <meta
+      name="description"
+      content="Research website for blind image restoration with lens self-calibration under unknown perturbation."
+    />
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="index.html">Blind Lens Self-Calibration</a>
+        <nav class="page-nav">
+          <a class="active" href="index.html">Home</a>
+          <a href="method.html">Method</a>
+          <a href="stories.html">Six Stories</a>
+          <a href="benchmark.html">Benchmarks</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="hero hero-home">
+        <p class="hero-kicker">Single-observation blind deconvolution</p>
+        <h1>Recovering a useful PSF matters more than recovering the exact optical model.</h1>
+        <p class="hero-copy">
+          This site presents the motivation, method, and results from the unknown-perturbation
+          lens self-calibration study. The central question is whether a single degraded image can
+          support both restoration and useful self-calibration when the true perturbation lies
+          outside the assumed physical parameterization.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="stories.html">Read the six stories</a>
+          <a class="button button-secondary" href="method.html">See the formulation</a>
+        </div>
+      </section>
+
+      <section class="cards-section">
+        <div class="stat-card">
+          <span class="stat-label">Best blind result</span>
+          <strong>+4.08 dB</strong>
+          <span>Motion-blur Blind-DPS</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Best hybrid ceiling</span>
+          <strong>+3.75 dB</strong>
+          <span>Iterative refinement</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Oracle A</span>
+          <strong>+3.70 dB</strong>
+          <span>GT PSF + FFHQ image prior</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Research question</h2>
+        <p>
+          Lens self-calibration asks whether the effective point spread function, or PSF, of an
+          optical system can be inferred directly from a degraded image and then used for
+          restoration. In this project the input is a single noisy blurred image <code>y_n</code>,
+          produced by an unknown perturbed lens instance, and the goal is to recover both the
+          latent clean image <code>x_clean</code> and the blur kernel <code>k</code>.
+        </p>
+        <div class="equation-block">
+          <code>y = k * x + n</code>
+        </div>
+        <p>
+          The challenge is that the true perturbation is outside the assumed <code>CameraLensS4</code>
+          parameter family. The exposed calibration model does not include surface-2 curvature, but
+          the ground truth does. Exact physical self-calibration is therefore impossible by
+          construction. The practical question becomes whether a blind method can still recover a
+          PSF that is useful for image restoration.
+        </p>
+      </section>
+
+      <section class="panel panel-grid">
+        <div>
+          <h2>What the study shows</h2>
+          <ul>
+            <li>Self-calibration is still possible under unknown perturbation.</li>
+            <li>Image prior value dominates exact PSF knowledge.</li>
+            <li>A narrow optical PSF prior can be harmful in coupled blind sampling.</li>
+            <li>Iterative refinement saturates at an image-model ceiling.</li>
+            <li>USAF is a poor calibration target under the FFHQ image prior.</li>
+            <li>The best motion-blur Blind-DPS result is reproducible across faces.</li>
+          </ul>
+        </div>
+        <div>
+          <h2>Site structure</h2>
+          <ul>
+            <li><a href="method.html">Method</a>: problem statement, formulation, and setup.</li>
+            <li><a href="stories.html">Six Stories</a>: the main narrative and figures.</li>
+            <li><a href="benchmark.html">Benchmarks</a>: classical deconvolution, full comparison, and open questions.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="figure-spotlight">
+        <figure>
+          <img src="assets/figures/kernel_prior_comparison_v6.png" alt="Main method comparison figure" />
+          <figcaption>
+            The core comparison: motion-blur Blind-DPS, optical-prior baselines, hybrid DPS,
+            iterative refinement, and Oracle A.
+          </figcaption>
+        </figure>
+      </section>
+    </main>
+
+    <script src="main.js"></script>
+  </body>
+</html>
