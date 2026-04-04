@@ -298,16 +298,16 @@ ol {
 
 .figure-grid {
   display: grid;
-  gap: 1rem;
+  gap: 1.4rem;
   margin-top: 1.4rem;
 }
 
 .figure-grid-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .figure-grid-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 figure,
