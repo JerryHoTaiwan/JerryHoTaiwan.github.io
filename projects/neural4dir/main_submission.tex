@@ -1,0 +1,1455 @@
+\documentclass{optica-article}
+
+\journal{opticajournal} % for journals or Optica Open
+
+\articletype{Research Article}
+
+% --- Table sizing & spacing ---
+\usepackage{etoolbox}
+\AtBeginEnvironment{table}{\small}      % or \footnotesize if you need smaller
+\setlength{\tabcolsep}{5pt}             % default ~6pt; tighten column padding
+\renewcommand{\arraystretch}{1.1}       % default 1.0; keep rows compact but readable
+
+% (Optional, improves look)
+\usepackage{booktabs}                   % for \toprule \midrule \bottomrule
+
+\usepackage{lineno}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\linenumbers % Turn off line numbering for Optica Open preprint submissions.
+
+\begin{document}
+
+\title{Accelerating 4D Hyperspectral Imaging through Physics-Informed Neural Representation and Adaptive Sampling}
+
+\author{
+Chi-Jui Ho,\authormark{1}
+Harsh Bhakta,\authormark{2}
+Xiong Wei,\authormark{2}
+and Nicholas Antipa\authormark{1}
+}
+
+\address{
+\authormark{1}Dept. of Electrical and Computer Engineering, UC San Diego, La Jolla, CA 92093, USA\\
+\authormark{2}Dept. of Chemistry and Biochemistry, UC San Diego, La Jolla, CA 92093, USA
+}
+
+\email{\authormark{*}\{chh009, hhbhakta, w2xiong, nantipa\}@ucsd.edu} %% email address is required; see note below about the corresponding author designation
+
+% use {asbstract*} to suppress the copyright line. Copyright information will be added in production
+
+\begin{abstract*} 
+High-dimensional hyperspectral imaging (HSI) enables the visualization of ultrafast molecular dynamics and complex, heterogenous spectra. However, applying this capability to resolve spatially varying vibrational couplings in two-dimensional infrared (2DIR) spectroscopy, a type of coherent multidimensional spectroscopy (CMDS), necessitates prohibitively long data acquisition, driven by dense Nyquist sampling requirements and the need for extensive signal accumulation. To address this challenge, we introduce a physics-informed neural representation approach that efficiently reconstructs dense spatially-resolved 2DIR hyperspectral images from sparse experimental measurements. In particular, we used a multilayer perceptron (MLP) to model the relastion between the sub-sampled 4D coordinates and their corresponding spectral intensities, and recover densely sampled 4D spectra from limited observations. The reconstruction results demonstrate that our method, using a fraction of the samples, faithfully recovers both oscillatory and non-oscillatory spectral dynamics in experimental measurement. Moreover, we develop a loss-aware adaptive sampling method to progressively introduce potentially informative samples for iterative data collection while conducting experiments. Experimental results show that the proposed approach achieves high-fidelity spectral recovery using only $1/32$ of the sampling budget, as opposed to exhaustive sampling, effectively reducing total experiment time by up to 32-times. This framework offers a scalable solution for accelerating any experiments with hypercube data, including multidimensional spectroscopy and hyperspectral imaging, paving the way for rapid chemical imaging of transient biological and material systems.
+
+\end{abstract*}
+
+\section{Introduction}
+\label{sec:intro}
+
+Conventional hyperspectral imaging (HSI) captures spectral responses of materials across the spatial domain to encode chemical composition through linear absorption or emission~\cite{goetz1985imaging, chang2003hyperspectral}. Nevertheless, the dimensionality of conventional HSI is insufficient to resolve the transient interactions, couplings, or structural dependencies in complex systems, which often requires additional frequency or temporal axes to resolve. Thus, spatially-resolved two-dimensional infrared (2DIR) spectroscopy, a high-dimensional modality within the HSI framework~\cite{zanni2020hyperspectral}, has been developed to extend the standard spatial-spectral data structure into the nonlinear regime~\cite{zanni2020hyperspectral,doi:10.1021/bk-2021-1398.ch006,Baiz:14}, recording frequency-frequency correlations to characterize intermolecular couplings and ultrafast dynamics~\cite{ostrander2016spatially, baiz2011ultrafast}.
+
+However, the acquisition of such high-dimensional data cubes is governed by a fundamental trade-off between resolution, signal-to-noise ratio (SNR), and acquisition speed~\cite{hagen2013review, gehm2007single}.  This bottleneck is particularly acute in 2DIR, where resolving complex dynamics necessitates exhaustive scanning along both the coherence and population time axes. To sample greater than the Nyquist criteria, hundreds of discrete steps are required per dimension, and when integrated with spatial mapping, the data volume grows exponentially. Furthermore, achieving sufficient SNR for these weak nonlinear signals demands long accumulation times at every coordinate to average out noise~\cite{helbing2010compact}. As a result, the combined requirements of signal averaging and high-resolution scanning necessitate hours to capture a single 2DIR data cube ~\cite{ostrander2016spatially}; when extended across multiple waiting times or spatial coordinates, total experiment times frequently reach several days~\cite{bhattacharya2017accelerating}.
+
+To reduce acquisition times, existing methods have explored reconstructing fully sampled data from undersampled measurements using both model-based and data-driven frameworks. Model-based methods leverage signal sparsity within compressed sensing frameworks \cite{sanders2012compressed, dunbar2013accelerated, humston2017compressively} or low-rank properties \cite{bhattacharya2017accelerating} to recover full 
+vibrational spectra from sparse measurements. In contrast, data-driven 
+approaches, including dynamic mode decomposition \cite{xu2023cutting} and 
+generative adversarial networks \cite{al2022generative}, learn complex signal 
+distributions to denoise spectra, thereby accelerating acquisition by reducing the number of required signal accumulations. While effective, these reconstruction strategies rely on either restrictive mathematical priors or extensive training datasets, limiting their generalization across diverse 2DIR and CMDS experimental conditions. At low sampling rates, model-based approaches often struggle to recover oscillatory and long-range signals. Furthermore, such recovery is constrained to dimensions defined within the initial parameterization, lacking the flexibility to incorporate across novel experimental dimensions. On the other hand, data-driven methods often necessitate extensive re-training for different molecular systems, which is difficult given the inherent scarcity of 2DIR data\cite{al2022generative}.
+
+\begin{figure*}[t]
+     \centering
+\includegraphics[width=0.95\textwidth]{Figs/teaser_v1_5.pdf}
+     \caption{\textbf{Hyper-spectrum reconstruction through neural rendering.} We sparsely sample the hyper-spectrum collected from the interaction between ultrafast pulses and samples, and then use the proposed neural rendering framework to reconstruct the dense hyper-spectrum data in both oscillatory and non-oscillatory regimes.}
+     \vspace{-2mm}
+     \label{fig:teaser}
+\end{figure*}
+
+To address these limitations, we apply Implicit Neural Representations (INRs)\cite{chen2019learning, park2019deepsdf}, which model hyper-spectral data as a continuous field, rather than as a discrete grid of isolated measurements. As illustrated in Fig.~\ref{fig:teaser}, the INR is achieved by a Multi-Layer Perceptron (MLP). Acting as a flexible nonlinear regression tool, the MLP learns to calculate the signal intensity for all queried experimental coordinates, facilitating high-fidelity reconstruction from limited samples. In particular, to capture rapidly varying temporal dynamics~\cite{raissi2019physics, hao2022physics, ho2025differentiable}, we apply an Inverse-Real-Fourier-Transoform (IRFT)-based optimization strategy to preserve signal structure. Furthermore, through effective nonlinear denoising, our INR generates high-fidelity spectra from measurements with low signal-averaging counts, thereby further accelerating the data collection process. Complementing this representation, we introduce an adaptive sampling algorithm inspired by dynamic importance sampling~\cite{martel2021acorn}, which uses the representation error as a surrogate for uncertainty at different regions. Thus, our method progressively introduces samples close to high mismatches to achieve efficient utilization of sampling budgets.
+% accommodates irregular sampling.
+
+\noindent Our main contributions are as follows:
+\begin{itemize}
+    \item We propose a coordinate-based neural field framework for the continuous, data-efficient reconstruction of multidimensional IR spectra from sparse measurements.
+    \item Our proposed system achieves high-fidelity spectral recovery despite low signal-averaging counts and undersampling along both coherence and population time axes, yielding up to a 32-fold increase in data efficiency.
+    \item We develop a loss-driven adaptive sampling algorithm that prioritizes measurements in regions of high reconstruction sensitivity, enabling targeted and interpretable refinement.
+\end{itemize}
+
+
+%Multidimensional infrared (MDIR) spectroscopy is a powerful nonlinear technique for probing molecular vibrations to uncover couplings and relaxation dynamics in heterogeneous molecular systems. By correlating excitation and detection frequencies across different controlled population times, MDIR encodes hydrogen bonding, secondary structure, and energy-transfer pathways at femtosecond timescale~\cite{hamm2011concepts, cho2008coherent}. Thus, MDIR is an important technique for dynamics analysis in biomolecules, peptides, and functional materials~\cite{khalil2003coherent, lee2014structural}.
+%\input{Sections/1_Introduction} 
+
+
+\section{Materials and Methods}
+\label{sec:mm}
+% Most methods only do 2D using a 2D detector. We should emphasize that our work should apply for any scanning dimension. 2DIR audience don't think about dimensionality, so they might be confused. We should say that a typical detector is 1- or 2-dimensional. If additional dimensions are added via scanning, they are very time consuming. WE're using a specific technique that is widely used in chemistry and material science (4D data). If dimension of detection is I, spectrum dimensions is N, there are N-I dimensions to accelerate. Mention some examples. Hyperdimensional imaging is much more common. We may need to mention smooth spectra vs. fine spectral features. Transient absorption microscopy (pump-probe scanning imaging methods). 
+
+
+\begin{figure*}[t]
+    \centering
+    % --- First Subfigure ---
+    \begin{subfigure}[b]{0.29\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figs/system.pdf}
+        \caption{System diagram.}
+        \label{fig:dim_a}
+    \end{subfigure}
+    \hfill % Adds horizontal space between the two images
+    % --- Second Subfigure ---
+    \begin{subfigure}[b]{0.68\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figs/dimensions_v5.pdf}
+        \caption{Illustrations of different dimensions.}
+        \label{fig:dim_b}
+    \end{subfigure}
+
+    \caption{\textbf{Dimensionality of Spatially-Resolved 2DIR.} a) The system diagram. b) Illustration of the four coordinate axes defining the hyperspectral volume. Each 2DIR frame parameterized by $(\omega_1, \omega_3)$, while the temporal and spatial variations are recorded in different waiting time $t_2$ and spatial position $x$.}
+    \vspace{-2mm}
+    \label{fig:dimension}
+\end{figure*}
+
+
+\subsection{Theoretical Framework and Acquisition of Spatially-Resolved 2DIR}
+\label{subsec:mdir_theory}
+
+Hyperspectral imaging (HSI) captures spectral signatures at every spatial coordinate to characterize material composition. While standard HSI efficiently assigns a static 1D linear spectrum to each pixel, the characterization of complex systems often necessitates nonlinear optical technique to capture underlying molecular interactions and time-dependent evolution. To fulfill this capability, Spatially-resolved 2D IR serves as a multidimensional spectroscopic expansion of the HSI framework \cite{zanni2020hyperspectral}. Similar to regular 2DIR \cite{hamm1998structure,mukamel1995principles}, this advanced hyperspectral modality probes the nonlinear vibrational manifold to resolve the structural dynamics and molecular couplings within the system.
+
+\subsubsection{Nonlinear Signal Generation and Temporal Evolution}
+
+To disentangle the specific vibrational couplings and relaxation processes that constitute these dynamics, 2DIR measures the nonlinear response of a material using a pulse sequence consisting of three ultrafast infrared pulses in a pump-probe geometry with distinct time intervals, as shown in Fig. ~\ref{fig:dim_a}:
+
+\begin{enumerate}
+    \item \textbf{Coherence Time ($t_1$):} The delay between the first two excitation (pump) pulses, modulated via a pulse shaper, during which the system evolves in a vibrational coherence state.
+    \item \textbf{Population Time ($t_2$):} The waiting time between the second pump pulse and a weaker probe pulse, controlled by a motorized mechanical delay stage to capture non-oscillatory dynamics such as vibrational relaxation, and sometimes, oscillatory dynamics if coherence states are involved.
+    \item \textbf{Detection Time ($t_3$):} The temporal axis of the emitted signal following the probe pulse, describing the free-induction decay of the nonlinear response.
+\end{enumerate}
+
+During these intervals, the evolution of coherent and population states is recorded through the nonlinear optical signal, which is subsequently dispersed by a grating spectrometer to resolve the probe frequency ($\omega_3$). To visualize the correlation between states excited before and after $t_2$, a Fourier Transform is performed along the coherence time $t_1$ to yield the pump axis $\omega_1$. This transformation results in a pump-probe correlation spectrum parameterized by $(\omega_1, \omega_3)$.
+
+\subsubsection{Spatial Resolution and Acquisition Dimensions}
+
+In addition to spectral dimensions, spatially-resolved 2DIR incorporates a spatial dimension ($x$) via a monochromator slit, which constrains the input field to select a line of an image of the sample \cite{yang2023enabling}. This configuration enables the measurement to resolve the spatiotemporal evolution of molecular states. Consequently, the spectroscopic measurement is partitioned into four dimensions $(\omega_1, \omega_3, t_2, x)$, encoding molecular couplings, energy exchange, and relaxation dynamics, and is ultimately collected by a HgCdTe Focal Plane Array (PhaseTech). 
+
+As shown in Fig. \ref{fig:dimension}, in this detector configuration, the spatial and detection frequency dimensions $(x, \omega_3)$ are naturally dispersed and multiplexed onto the array, whereas the temporal dimensions $(t_1, t_2)$ must be exhaustively scanned. Thus, our optimization efforts focus specifically on these controllable acquisition dimensions ($t_1, t_2$) rather than the natively resolved axes.
+
+% In addition to these spectral dimensions, spatially-resolved 2DIR incorporates a spatial dimension ($x$) via a monochromator slit, which constrains the input field to select focused signal images. The resulting line cut enables the measurement to resolve the spatiotemporal evolution of molecular states. Consequently, the spectroscopic measurement is partitioned into four dimensions, encoding molecular couplings, energy exchange, and relaxation dynamics, and is ultimately collected by a HgCdTe Focal Plane Array (PhaseTech). In our detector configuration, $(x, \omega_3)$ are naturally dispersed and multiplexed, while $(t_1, t_2)$ are exhaustively scanned. Therefore, our optimization efforts focus on the controllable acquisition dimensions ($t_1, t_2$) rather than the natively resolved axes.
+
+\subsubsection{Acquisition Protocol.} 
+To collect the full 2D IR hyperspectral data, we scan the coherence time $t_1$ from 0 to 8000~fs in 32~fs steps, and the population time $t_2$ from -6~ps to 12~ps in 0.2~ps steps. To overcome bandwidth limitations imposed by the pulse shaper resolution, we implement a rotating frame strategy, which down-shifts the oscillation frequency of the measured coherence signal and permits accurate sampling at larger time steps. The probe frequency $\omega_3$ spans 1906.6--2058.7~cm$^{-1}$ with a resolution of $1.197 \pm 0.001$~cm$^{-1}$/pixel. The spatial axis ($x$) covers a field of view of at least $\pm 200$~$\mu$m with a resolution of $24 \pm 6$~$\mu$m/pixel, depnding on the system configuration. Finally, to enhance the Signal-to-Noise Ratio, measurements at each $(t_1, t_2)$ coordinate are averaged over 20 accumulations ($r$). In average, it takes 2 hours and 10 minutes to collect a four-dimensional array with coordinates $(t_2, x, \omega_1, \omega_3)$ using $r=20$. In this study, we collect a total of five spatially-resolved 2DIR data, acquired under different rotation angles, which determines the quality and noise level of collected spectrum.
+
+\subsubsection{Generalization to Coherent Multidimensional Spectroscopy.}
+The resulting 4D dataset poses a reconstruction challenge inherent to 2DIR spectroscopy, where signal dimensions exhibit two distinct behaviors: oscillatory evolution arising from coherent states ($t_1$), and non-oscillatory decay or variation associated with population dynamics and spatial distribution ($t_2, x$). Because our reconstruction approach addresses these fundamental signal dynamics, it offers a generalized methodology applicable to various CMDS techniques, such as bioimaging \cite{dicke2021application, tiwari2018spatially} and transient absorption microscopy \cite{zhu2020transient, gross2023progress}.
+
+% To capture 4D data set, we integrated a standard 2D IR spectroscopic setup with a hyperspectral imaging detection module, allowing us to generate nonlinear vibrational signals and spatially resolve them along a specific coordinate axis.
+
+% With different controlled time delays, the spectroscopic measurement is disentangled into multiple dimensions, encoding molecular couplings, energy exchange, and relaxation dynamics, which are inaccessible to linear methods.
+
+% The imaging train employs microscopic lenses to magnify the signal, followed by a slit and grating spectrometer. 
+
+ %At each $t_1$ point, we acquire four spectra corresponding to different phase cycling conditions, rephasing and non-rephasing pathways for ground and excited states, which are combined to isolate the absorptive 2D IR signal. 
+
+ %\begin{itemize}
+    %\item \textbf{Spectral Dimensions ($\omega_1, \omega_3$):} To construct the 2D correlation map between states excited before and after  t$_2$ , we transform the time-domain signals into spectral axes. The probe axis $\omega_3$ is experimentally resolved by dispersing the emitted signal through a grating. In contrast, the pump axis $\omega_1$ is computationally retrieved via performing Fourier Transform along the coherence time $t_1$.
+    % \item \textbf{Temporal Dimension ($t_2$):} By iteratively scanning the waiting time $t_2$, we resolve the temporally evolved dynamics of the coherent or population states.
+    % \item \textbf{Spatial Dimension ($x$):} In our modified configuration, a spatial dimension is introduced by selecting the focused signal images through the monochromator slit, resulting a line cut, allowing the measurement to resolve the spatiotemporal evolution of molecular states.
+%\end{itemize}
+
+% which evolve according to the internal kinetics of the system
+
+% By controlling the polarization, phase, and time delay of the incoming fields, the spectroscopic measurement is disentangled into multiple dimensions. The resulting measures encode molecular couplings, energy exchange, and relaxation dynamics, which are inaccessible to linear methods. %Specifically, the amplitude, phase, and inter-pulse delay ($t_1$) of the pump beam is modulated via a pulse shaper, and the waiting time ($t_2$) is controlled by a motorized mechanical delay stage. Both the pump and probe beams are focused and overlapped onto the sample cell in a pump-probe geometry using CaF$_2$ lenses. 
+
+
+
+ % To probe different spatial orientations without moving the sample, a K-mirror is inserted in the beam path to rotate the image plane. 
+
+
+%Background signals are removed by subtracting reference spectra collected at $t_2 = -30$ ps. 
+
+%\subsubsection{Experimental Setup and Data Collection}
+%\label{subsec:data_collection}
+
+%The experimental frontend utilizes a Ti:Sapphire solid-state laser (Coherent) generating 800 nm pulses with 4 W power and 32 fs duration at a 1 kHz repetition rate. The laser beam passes through the optical parametric amplifier (Light Conversion) to produce signal and idler beams in the mid-infrared range. These beams are spatially and temporally overlapped onto a type-II AgGaS$_2$ difference frequency generation (DFG) crystal, yielding 5 $\mu m$ pulses (residual light is blocked by a Ge filter). A CaF$_2$ wedge splits this output into pump (90\%) and probe (10\%) lines.
+
+
+
+\subsection{Data Preparation}
+\label{subsec:data_prep}
+
+Using the 4D hypercube dataset described in Sec.~\ref{subsec:mdir_theory}, we simulate and pre-process measurements acquired under reduced sampling budgets as follows.
+
+\noindent \textbf{Signal accumulation ($r$).} As mentioned above, each experimental spectrum is produced by averaging 20 repeated measurements. To simulate data obtained in different data aggregation counts $r$, we average the spectrum with a subset of repeatedly sampled data.
+
+\noindent \textbf{Temporal subsampling.} Along the temporal axes $t_1$ and $t_2$, we randomly or periodically subsample the measurements to emulate data acquisition with lower temporal sampling rates. The remaining axes are kept fully sampled.
+
+\noindent \textbf{Normalizations.}
+In 2DIR spectra, the positive and negative signals may differ in amplitude by up to an order of magnitude. This imbalance can make it hard to recover any weaker peaks. To address this, we rescale the weaker peak to match the dynamic range of the stronger one prior to model fitting, and scale it back at the inference stage. In model training and inference, all input coordinates are normalized to $[0,1]$ to maintain consistent scaling across all dimensions.
+
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=1.0\textwidth]{Figs/MLP_v12.pdf}
+     \caption{\textbf{Our MLP-based neural representation model.} We construct neural representations for signals subsampled along either the population or coherence time dimensions. \textbf{Population:} A coordinate-based MLP is trained to learn the temporal dynamics along population time from sparsely sampled data and to generalize this knowledge to unsampled points during inference. \textbf{Coherence:} The MLP is optimized in the frequency domain, after which an IRFT is applied to recover estimated raw signals for loss computation, excluding intensities at unsampled coordinates. During inference, the trained network reconstructs rapidly varying 4D signals across the full coordinate domain.}
+     \vspace{-3mm}
+     \label{fig:MLP}
+\end{figure}
+
+\subsection{Neural Representation Algorithm}
+\label{subsec:algo}
+
+To model multidimensional IR spectroscopic dynamics in unsampled regions, we use INRs to formulate the data as a continuous function of its acquisition coordinates, rather than a discrete array of data points. By learning the underlying mapping between these experimental coordinates and the measured signal intensities, INRs are able to estimate continuous signal values even under low subsampling rates of the population ($t_2$) and coherence ($t_1$) time axes.
+
+\subsubsection{Implicit Neural Representation}
+
+
+INRs offer an alternative to conventional methods for modeling high-dimensional data~\cite{park2019deepsdf, chen2019learning}. Traditionally, signals are explicitly represented as discrete arrays of pixels or voxels, with values stored on a predefined resolution grid.  In contrast, INRs bypass this discrete grid by formulating a signal as a continuous function of its coordinates. With INRs, signals are no longer constrained by a fixed sampling rate but can be evaluated at any arbitrary coordinate, making the representation inherently resolution-independent. To parameterize this continuous function, INRs typically employ an MLP, which naturally maps continuous domains to complex outputs without requiring rigid, predefined analytical equations. Specifically, the MLP takes coordinates as inputs and generates the corresponding signal value at that exact location. The relationship between coordinates and signal values is parameterized by the tunable weights and biases across sequential fully-connected layers of the network. Through a series of matrix multiplications and nonlinear activations, the MLP predicts the signal values at the input coordinates. With model training, the tunable parameters are optimized to minimize the error against known signal intensities. Notably, this instance-specific optimization allows the MLP to learn the continuous topology of an individual signal without demanding the large training datasets required by data-driven algorithms.
+
+% While early INRs struggled to capture fine details, the introduction of Fourier feature encoding~\cite{tancik2020fourier} and sinusoidal representation networks~\cite{sitzmann2020implicit} enabled these models to accurately represent high-frequency and oscillatory signals. These advances, along with breakthroughs in volumetric rendering and view synthesis~\cite{mildenhall2021nerf, barron2021mip, barron2022mip, muller2022instant}, have established INRs as a powerful framework for solving complex inverse problems from limited measurements.
+
+%INRs model continuous mapping from coordinates to corresponding signal values. Park \textit{et al.}~\cite{park2019deepsdf} and Chen \textit{et al.}~\cite{chen2019learning} pioneered applying INRs to 3D representations. To mitigate the spectral bias inherent in standard INRs, Fourier feature encoding~\cite{tancik2020fourier} and sinusoidal representation networks ~\cite{sitzmann2020implicit} have been introduced to capture high-frequency and oscillatory signals. Mildenhall \textit{et al.} ~\cite{mildenhall2021nerf} further extended INRs to represent radiance fields and volume rendering, achieving novel view synthesis. Barron \textit{et al.} further addressed the aliasing issue~\cite{barron2021mip,barron2022mip}. Muller \textit{et al.} improved the training efficiency through hash encoding~\cite{muller2022instant}. These advances have demonstrated INRs' capability of solving physics-based inverse problems, especially when limited information is provided, and hence are suitable for improving data efficiency. 
+
+\subsubsection{Network Architecture and Coordinate Parameterization}
+\label{subsec:mlp}
+As visualized in Fig.~\ref{fig:MLP}, we employ a coordinate-based MLP to map normalized spatial ($x$), temporal ($t_1, t_2$), or frequency ($\omega_1, \omega_3$) coordinates to their corresponding 4D spectroscopic intensities. The network is designed to accurately model both rapidly oscillating and slowly varying signal components. Specifically, the MLP consists of four hidden layers, each comprising 64 neurons and utilizing a Rectified Linear Unit (ReLU)~\cite{agarap2018deep} for nonlinear activation, followed by a final linear output layer.
+
+\noindent \textbf{Slow Varying Intensities.}
+Given that temporal variations along the $t_2$ axis are inherently smooth, we directly use the MLP to model the relation between subsampled 4D coordinates and associated intensity values. At the inference stage, the MLP takes densely sampled 4D coordinates as input and predict intensities at both sampled and unsampled coordinates.
+
+\noindent \textbf{Fast Varying Intensities.}
+We note that it is challenging for standard MLP to model signals exhibiting rapid oscillations, which is natural for temporal signals along the $t_1$ axis, and the difficulty exacerbates under sparse sampling conditions. Hence, we adopt a physics-informed trategy. Rather than directly fitting the MLP to rapidly oscillating temporal signals, we let the MLP output the frequency-domain spectrum, and then apply an IRFT to the network output and recover the corresponding time-domain signal estimates. The loss is computed in the time domain by comparing these estimates with sparse measurements. This strategy leverages the the inherent low-frequency bias of MLP as a regularizer. By learning the smoother spectral function, the model effectively preserves oscillatory information while being robust to noise and artifacts resulting from sparse acquisition.
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=0.6\textwidth]{Figs/projection_v7.pdf}
+     \caption{\textbf{2D representation of 4DIR data.} 
+     A bounding box is defined around the dominant peak in each $(\omega_1,\omega_3)$ slice. The intensities enclosed within this region are averaged to reduce the four-dimensional data to a two-dimensional representation along the $(x,t_2)$ axes, which is subsequently used for evaluation.}
+     \vspace{-4mm}
+     \label{fig:projection}
+\end{figure}
+
+\subsubsection{Loss Function}
+\label{subsec:loss_func}
+
+In model training, we use the Mean Squared Error (MSE) between the measured and reconstructed signals as the primary loss function to drive the intensity reconstruction. To recover further data characteristic, the loss function also includes Statistical-Moment-Matching Constraints with regularization.
+
+\paragraph{Intensity Reconstruction.}
+We compute the MSE between the predicted spectrum $f_{\theta}$ and the ground truth data $S$ across all sampled coordinates $\mathcal{S}$ to evaluate their similarities:
+\begin{equation}
+    \mathcal{L}_{\mathrm{MSE}} = \frac{1}{|\mathcal{S}|} \sum_{(x, t_2, \omega_1, \omega_3) \in \mathcal{S}} \Big( f_{\theta}(x, t_2, \omega_1, \omega_3) - S(x, t_2, \omega_1, \omega_3) \Big)^2,
+\end{equation}
+where $|\mathcal{S}|$ denotes the total number of coordinates.
+
+
+\paragraph{Statistical-Moment-Matching Constraints.}
+To capture spatial dynamics accurately along with the spectral intensity, we apply constraints on the statistical moments ($\mu, \sigma$) of the spatial variable ($x$) as follows. As shown in Fig.~\ref{fig:projection}, we first reduce the 4D spectra $S(x, t_2, \omega_1, \omega_3)$ to a 2D spatial-temporal profile $M(x, t_2)$ with the following three steps: a) identify the peak of intensities, b) isolate the half-maximum neighborhood around this peak in the $(\omega_1, \omega_3)$ frequency plane, and c) average the intensities within this region. After this dimension reduction, we normalize the spatial profile $M(\cdot, t_2)$ for each sampled population time $t_2$ to treat it as a probability distribution:
+\begin{equation}
+    p_M(i \mid t_2) = \frac{M(x_i, t_2)}{\sum_{j=1}^{N_x} M(x_j, t_2)}, \quad i=1, \dots, N_x,
+\end{equation}
+where $x_i$ represents the spatial coordinate at index $i$, and $N_x$ is the total number of spatial coordinates. This formulation allows us to analyze the spatial evolution via the mean position $\mu_M$ and standard deviation $\sigma_M$:
+\begin{equation}
+\label{eq:mean_std}
+    \mu_M(t_2) = \sum_{i=1}^{N_x} x_i \, p_M(i \mid t_2), 
+    \quad 
+    \sigma_M(t_2) = \sqrt{\sum_{i=1}^{N_x} x_i^2 \, p_M(i \mid t_2) - \mu_M(t_2)^2}.
+\end{equation}
+Thus, the moment-matching loss ensures that the predicted profile $\tilde{M}$ matches the spatial moments of the reference $M$:
+\begin{equation}
+    \mathcal{L}_{\mathrm{moment}} = \sum_{t_2 \in \mathcal{T}_2} \Big( 
+    |\mu_{\tilde{M}}(t_2) - \mu_M(t_2)|^2 
+    + |\sigma_{\tilde{M}}(t_2) - \sigma_M(t_2)|^2 
+    + \|\tilde{M}(\cdot, t_2) - M(\cdot, t_2)\|_2^2 
+    \Big).
+\end{equation}
+
+\paragraph{Regularization.}
+To pursue physically accurate dynamics, we apply regularization functions, which act as penalty terms to constrain the solution space by favoring models that adhere to prior structural assumptions \cite{willoughby1979solutions, aster2018parameter}, to the spatial variance to encourage smooth and monotonic changes. Let $\mathcal{T}_2$ represent the set of all sampled time points along the population time axis ($t_2$), containing a total of $K = |\mathcal{T}_2|$ sampled points. We index these sampled time points in strictly chronological order, denoting the $k$-th time point as $t_{2_k}$ and apply a hinge-type monotonicity constraint by:
+
+$$\label{eq:mono}
+\mathcal{L}_{\mathrm{mono}} = \frac{1}{K-1} \sum_{k=1}^{K-1} \max\big\{0, \, \delta - [\sigma_M(t_{2_{k+1}}) - \sigma_M(t_{2_{k}})] \big\},$$
+
+\noindent where $\delta \ge 0$ is a margin parameter. Second, to discourage numerical instability and enforce smooth temporal evolution, we penalize positive second-order finite differences:
+
+$$\mathcal{L}_{\mathrm{smooth}} = \frac{1}{K-2} \sum_{k=1}^{K-2} \max\big\{ \sigma_M(t_{2_{k+2}}) - 2\sigma_M(t_{2_{k+1}}) + \sigma_M(t_{2_k}) - \gamma, \, 0 \big\},$$
+
+\noindent where $\gamma \ge 0$ serves as a curvature threshold.
+
+\paragraph{Total Objective.}
+The final loss function is a weighted sum of all these components:
+\begin{equation}
+    \mathcal{L} = \lambda_{\mathrm{MSE}}\mathcal{L}_{\mathrm{MSE}} + \lambda_{\mathrm{moment}}\mathcal{L}_{\mathrm{moment}} + \lambda_{\mathrm{mono}}\mathcal{L}_{\mathrm{mono}} + \lambda_{\mathrm{smooth}}\mathcal{L}_{\mathrm{smooth}},
+\end{equation}
+
+where the coefficients $\lambda$ are empirical hyperparameters, balancing the contribution of each term during optimization.
+
+\subsection{Adaptive Sampling}
+\label{subsec:adaptive_method}
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=0.9\textwidth]{Figs/adaptive_v10.pdf}
+     \caption{\textbf{Our loss-driven adaptive sampling method.} Beginning with the initially sampled coordinates (blue dots), the MLP is trained to model the spectral dynamics and the loss is evaluated along the population time $t_2$. The interval exhibiting the highest average prediction error is identified, and its midpoint is selected as the next sampling location.}
+     \vspace{-2mm}
+     \label{fig:adaptive}
+\end{figure}
+
+We apply a loss-aware adaptive sampling strategy~\cite{martel2021acorn} to improve data efficiency along the population time ($t_2$) axis. This algorithmic flow, illustrated in Fig.~\ref{fig:adaptive}, begins by fitting the MLP $f_\theta(\cdot)$ to the initially sampled spectra and computing the reconstruction loss between the network's predictions and the experimental measurements. To quantify the uncertainty at specific time delays, this reconstruction loss is aggregated across the spatial and frequency dimensions, yielding an error metric $\mathcal{L}(t_{2,k})$ for each sampled point, where $t_{2,k}$ denotes the $k$-th sample in the chronologically ordered sequence established previously.
+
+Using this metric, we compute the average reconstruction error, $s_k$, for the interval between each pair of adjacent samples, $t_{2,k}$ and $t_{2,k+1}$:
+\begin{equation}
+    s_k = \frac{1}{2}\big(\mathcal{L}(t_{2,k}) + \mathcal{L}(t_{2,k+1})\big), \quad k=1,\ldots,K-1.
+\label{eq:score-mean}
+\end{equation}
+
+The averaged error $s_k$ serves as a heuristic for uncertainty within an interval. Large estimation errors at the boundaries suggest that the underlying dynamics of that interval have been poorly captured. To maximize the information gain of the next sample, we identify the interval with the highest error, $k^\star = \arg\max_k s_k$, and select its midpoint as the subsequent sampling target.
+
+
+\begin{equation}
+    \label{eq:midpoint}
+    t_2^\star = \frac{1}{2}\big(t_{2,k^\star} + t_{2,k^\star+1}\big),
+\end{equation}
+
+which is rounded to the nearest available delay. The MLP is subsequently refined using this newly acquired measurement, and alternations between sampling and refining repeats until the predefined sampling budget is exhausted. By iteratively bisecting the intervals bounded by the highest reconstruction errors, the algorithm progressively closes interpolation gaps. This yields a dynamic sampling distribution naturally optimized to capture the underlying physical dynamics.
+
+\subsection{Software Implementation Details}
+
+We use PyTorch as our optimization framework~\cite{paszke2019pytorch} and drive the network optimization by the Adam algorithm \cite{kingma2014adam} with parameters $(\beta_1, \beta_2) = (0.9, 0.999)$. Data representation performance is evaluated with both qualitatively and quantitatively. For qualitative evaluation, we visualize the $(\omega_3,\omega_1)$ and $(\omega_3, t_2)$ slices around the peak of 4D data. Quantitatively, we report the overall MSE and three population-time profiles: the peak-intensity, mean, and standard-deviation profiles. In particular, the peak intensity at each population time is computed by averaging the magnitudes within the bounding box depicted in Fig. ~\ref{fig:projection}.
+
+\section{Results and Discussion}
+\label{sec:rd}
+
+In this section, we first evaluate the networks trained with different numbers of data averaging counts and varying $t_2$ sampling densities. We also report its ability to capture rapid variations along the $t_1$ axis and show how the adaptive sampling strategy selects the informative points from unseen candidates. Using the MLP-based representation, we model the spectra with fewer repeated samples (Sec.~\ref{ssec:repeat}), subsampled $t_2$ indices (Sec.~\ref{ssec: subt2}), and $t_1$ indices (Sec.~\ref{ssec: subt1}). We then present the results from different sampling strategies in Sec.~\ref{ssec: adaptive}. 
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=0.9\textwidth]{Figs/results_repeated_v5.pdf}
+     \caption{\textbf{Summary of results under different numbers of repeated samplings.} 
+     (a) Measurements averaged over varying data aggregation counts ($r$) and reconstructed spectra under the same count.
+     (c) Using the least noisy case (highest $r$) as reference, we compute the MSE of other measurements and predictions against it.
+     (d–e) Mean and standard deviation profiles of reconstructions at different repeat counts, with the reference shown as a solid black line.
+      }
+     \vspace{-4mm}
+     \label{fig:repeat}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Quantitative evaluation under different data averaging counts ($r$).}
+\label{tab:repeat}
+\begin{tabular}{lrrr}
+\toprule
+$r$ & Intensity MSE & Mean profile MSE & Std profile MSE \\
+\midrule
+2  & 1.320e-02 & 1.280e-06 & 3.820e-07 \\
+5  & 8.330e-03 & 6.600e-07 & 1.240e-07 \\
+10 & 8.250e-03 & 6.050e-07 & 9.990e-08 \\
+20 & \textbf{4.990e-03} & \textbf{4.360e-07} & \textbf{4.860e-08} \\
+\bottomrule
+\end{tabular}
+\vspace{-3mm}
+\end{table}
+
+\subsection{Prediction Stability}
+
+\subsubsection{Low-Accumulation Regimes}
+\label{ssec:repeat}
+
+We evaluate the noise-robustness of our framework by varying the signal-averaging counts ($r \in \{2, 5, 10, 20\}$) of input spectra to simulate different noise levels. The spectra with different noise levels serve as the reference measurement to train the MLP.
+
+As illustrated in Fig.~\ref{fig:repeat}(A), reducing the signal-averaging count increases the noise level and distorts weaker peaks in the synthesized spectra. In contrast, the MLP is robust to noise and predicts spectra retaining structural integrity, effectively suppressing elevated noise. In Fig.~\ref{fig:repeat}(B), we assess reconstruction performance against the measurement averaged across all available acquisitions, representing the lowest achievable noise level. As we can see, the raw measurements deviate significantly from the reference as the data aggregation count decreases,  whilethe model predictions remain consistent across different noise levels.
+
+As observed in Table~\ref{tab:repeat} and Fig.~\ref{fig:repeat}(C)–(E), the shape of all three profiles remain stable under different data averaging counts, with moderate mismatch in lower counts. These findings demonstrate that our model is noise-robustness, which alleviates the need for extensive data aggregation counts and improves data acquisition efficiency. Notably, the choice of acceptable $r$ is analysis dependent. In terms of intensity recovery, we can reduce the value to $r=5$ with consistent recovery. Nonetheless, if one pursues accurate mean and standard deviation of th spatial profile, a higher number $r=10$ is required.
+
+
+\subsubsection{Undersampled Population Temporal Data}
+\label{ssec: subt2}
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=\textwidth]{Figs/results_t2_v5.pdf}
+     \caption{\textbf{Summary of results under different sampling rates along the population time.}(a) Reference and reconstructed spectra obtained at various sampling rates along the population time axis.
+     (b–d) Peak intensity, mean and standard deviation profiles of reconstructions at different sampling intervals, with the reference shown as a solid black line.}
+     \vspace{-4mm}
+     \label{fig:t2_results}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Quantitative evaluation under different sampling intervals (SI) along the population time.}
+\label{tab:t2_results}
+\begin{tabular}{lrrr}
+\toprule
+SI & Intensity MSE & Mean profile MSE & Std profile MSE \\
+\midrule
+1  & \textbf{4.990e-03} & \textbf{4.360e-07} & \textbf{4.860e-08} \\
+2  & 5.590e-03 & 5.120e-07 & 6.390e-08 \\
+4  & 1.390e-02 & 1.290e-06 & 1.480e-07 \\
+8  & 1.680e-02 & 2.860e-06 & 1.570e-07 \\
+16 & 1.570e-01 & 3.490e-06 & 3.000e-07 \\
+\bottomrule
+\end{tabular}
+\vspace{-3mm}
+\end{table}
+
+We simulated 2DIR data under varying $t_2$ sampling intervals (SIs) via uniform undersampling. With a baseline rate of 0.2 ps/step, SIs ranging from 2 to 16 were evaluated to optimize the MLP. Results across these sampling densities are presented in Fig.~\ref{fig:t2_results} and Table~\ref{tab:t2_results}. As shown in Fig.~\ref{fig:t2_results}(a), the reconstructed spectra faithfully reproduce the spectral structures in unsampled $t_2$ regions regardless of different sampling rates. As observed in Fig.\ref{fig:t2_results}(b)-(d) and Table~\ref{tab:t2_results}, the most significant mismatch occurs when the sampling interval is 16, where the sparse sampling rate makes capturing the temporal dynamics extremely difficult. We observe the same behavior in the mean and standard deviation of the spatial profile, which closely match the reference until the sampling interval reaches 16. These results demonstrate the generalization capability of the MLP in unobserved temporal regions, enabling lower sampling rates without compromising reconstruction fidelity. As discussed in Sec.~\ref{ssec:repeat}, the choice of acceptable sampling interval is evaluation dependent.
+
+
+% Similar to the procedure described in Sec.~\ref{ssec:repeat}, we optimize the MLP on different subsampling rates along $t_2$, and summarize the results in Fig.~\ref{fig:t2_results} and Table~\ref{tab:t2_results}. As shown in Fig.~\ref{fig:t2_results}(a), the reconstructed spectra faithfully reproduce the spectral structures in unsampled $t_2$ regions regardless of different sampling rates. As observed in Fig.\ref{fig:t2_results}(b)-(d) and Table~\ref{tab:t2_results}, the most significant mismatch occurs when the sampling interval is 16, where the sparse sampling rate makes capturing the temporal dynamics extremely difficult. We observe the same behavior in the mean and standard deviation profiles, which closely match the reference until the sampling interval reaches 16. These results demonstrate the generalization capability of the MLP in unobserved temporal regions, enabling lower sampling rates without compromising reconstruction fidelity. As discussed in Sec. \ref{ssec: repeat}, the choice of acceptable sampling interval is evaluation dependent.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/results_t1_v10.pdf} 
+    \caption{\textbf{Reconstruction results from subsampled $t_1$ domain data.} 
+    (a) The 2DIR spectrum generated from the reconstructed data compared against the ground truth. (b) Temporal raw measurements showing the ground truth (fully sampled) and the subsampled input used for reconstruction. (c) A 1D intensity profile extracted from the temporal data in (b) to demonstrate signal recovery accuracy. In (c), the continuous curves between ground truth points are generated via sinc interpolation to visualize the underlying oscillation.}
+    \label{fig:t1_results}
+    \vspace{-3mm}
+\end{figure}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/results_t1_cmp_v4.pdf}
+    \caption{\textbf{Reconstruction results from subsampled $t_1$ domain data using different algorithms.} 
+    (a) The 2DIR spectrum and (b) temporal  measurements generated from different reconstruction algorithms compared against the ground truth.}
+    \label{fig:t1_cmp}
+    \vspace{-3mm}
+\end{figure}
+
+
+\begin{table}[t]
+\centering
+\caption{Reconstruction performance on undersampled $t_1$ data across different algorithms.}
+\label{tab:drop50_avg_ang2_to_ang02}
+\begin{tabular}{lrr}
+\toprule
+Algorithm & Spectrum MSE & Unsampled Temporal MSE\\
+\midrule
+RFFT & \textbf{1.333e-02} & \textbf{1.583e-04} \\
+GIRAF-2D \cite{bhattacharya2017accelerating} & 8.607e-02 & 3.443e-03 \\
+Fourier-features~\cite{tancik2020fourier} & 1.615e-01 & 6.190e-03 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/cmp_t1_drop.pdf}
+    \caption{\textbf{Reconstruction performance at different $t_1$ sampling rates.} 
+    We display the reconstructed 2DIR spectrum under different sampling rates and associated temporal data. SR: sampling rate.}
+    \label{fig:drop_t1}
+    \vspace{-3mm}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/recon_r_t1_t2_v4.pdf}
+    \caption{\textbf{Reconstruction 2DIR Spectrum under low accumulation and sampling rates.} 
+    We display an unsampled $t_2$ slice of 2DIR spectrum, Fourier transformed from subsampled $t_1$ measurement with $r=5$.}
+    \label{fig:drop_t1t2}
+    \vspace{-3mm}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{RFFT reconstruction error under different $t_1$ sampling rates.}
+\label{tab:rfft_drop_mse_seed7}
+\begin{tabular}{rcc}
+\toprule
+$t_1$ Sampling Rate & Spectrum MSE & Unsampled Temporal MSE \\
+\midrule
+80\% & \textbf{1.333e-02} & \textbf{1.583e-04} \\
+60\% & 1.663e-02 & 1.824e-04 \\
+40\% & 3.369e-02 & 3.825e-04 \\
+20\% & 2.503e-01 & 2.429e-03 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsubsection{Undersampled Coherent Temporal Data}
+\label{ssec: subt1}
+
+When undersampling the $t_1$ domain, we impose a sampling restriction that necessitates the inclusion of the first five and the final $t_1$ indices. The remaining indices in the undersampled set are then selected via random sampling from the intervening positions. Fig. \ref{fig:t1_results} evaluates signal reconstruction performance under a reduced $t_1$ sampling regime, illustrating (a) the 2DIR spectrum and (b) temporal measurements for the fully sampled ground truth, a 60\% sampling rate, and our proposed reconstruction. While lower sampling rates degrade spectral intensity due to truncated oscillations, our algorithm effectively recovers both the oscillation dynamics and the underlying spectral structures. This fidelity is further evidenced in Fig. \ref{fig:t1_results}(c), where the reconstructed continuous function closely aligns with the ground truth, accurately estimating values at unsampled points. To ensure a rigorous comparison, sinc interpolation was employed to recover the hidden continuous representation of the ground truth samples.
+
+In Fig.~\ref{fig:t1_cmp}, we benchmark our proposed framework against two baseline approaches: (a) Fourier-feature encoding (FFE)~\cite{tancik2020fourier}, an MLP-based technique that takes raw coordinates and their high-frequency sinusoidal mappings as inputs to resolve rapid signal variations, and (b) GIRAF~\cite{bhattacharya2017accelerating}, an existing compressed sensing technique with a low-rank constraint developed for 2DIR. Although both baseline methods manage to recover the observed training points, they yields erroneous interpolation and hence fail to generalize to unobserved regions. Specifically, the FFE exhibits pronounced interpolation artifacts due to a lack of physical constraints. On the other hand, because GIRAF infers unobserved values through a local patch low-rank prior, the oscillatory structures are easily oversmoothed under high missing rates. Furthermore, while GIRAF can recover 2DIR data from low $t_1$ sampling rates, it is unable to address undersampling in other dimensions, such as $t_2$. In contrast, our proposed RFFT-based model is capable of recovering 2DIR data when multiple dimensions ($t_1,t_2$) are undersampled. It accurately reconstructs dominant vibrational peaks while effectively suppressing aliasing artifacts induced by sparse sampling. Quantitatively, as summarized in Table~\ref{tab:drop50_avg_ang2_to_ang02}, this approach achieves the highest recovery accuracy, yielding lower errors in both unsampled regions and frequency-domain metrics.
+
+We also investigated the impact of varying the subsampling rates along the $t_1$ axis, with the results summarized in Table \ref{tab:rfft_drop_mse_seed7} and Figure \ref{fig:drop_t1}. As observed, peak distortion becomes significant when 151 out of 251 samples are removed. In contrast to the slowly varying temporal data along the $t_2$ axis, our algorithm demonstrates a lower tolerance for sampling reduction in $t_1$. This discrepancy arises because the original sampling rate in $t_1$ is closer to the Nyquist limit; consequently, the loss of samples becomes critical for accurately recovering the high-frequency oscillating and decaying components of the temporal signal. Conversely, the recovery of slowly varying signals is inherently less sensitive to high subsampling rates, as the underlying dynamics are captured by fewer data points.
+
+\subsubsection{Jointly Low Accumulation and Undersampled}
+
+We evaluate the joint effects of a low signal-averaging count and undersampling across both the $t_1$ and $t_2$ dimensions on 2DIR signal recovery. Figure~\ref{fig:drop_t1t2} presents the reconstruction results using a $t_2$ sampling interval of 4, a $t_1$ sampling rate of 60\%, and a signal-averaging count of $r=5$, yielding a 32 times higher data collection efficiency. As observed in the omitted $t_2$ slices within the $(\omega_1, \omega_3)$ domain, our method successfully reconstructs a smooth yet structurally accurate 2DIR spectrum despite the elevated noise and sparse $t_1$ sampling. Furthermore, the underlying $t_2$ dynamics are faithfully recovered in this highly constrained regime. These results validate the robustness of our INR model against simultaneous noise and data sparsity in the measurement.
+
+
+% As shown in Fig.~\ref{fig:t1_results}(a)–(b), although both methods can model rapid variations on sampled points, when coordinates with local peak intensities are not taken, the encoding method struggles to recover signal intensities, whereas our IRFT-based MLP maintains robust reconstruction. Moreover, as shown in Fig.\ref{fig:t1_results}(c), the spectral comparison demonstrates that the proposed model achieves better noise suppression while preserving oscillatory patterns. By downplaying frequency components outside the principal peak, our approach greatly improves the quality of time-domain signals. Fig.\ref{fig:t1_results}(d) illustrates two-dimensional visualizations, demonstrating that noise artifacts are effectively removed, and the oscillatory structures are accurately preserved.
+
+\begin{table}[t]
+\centering
+\caption{Quantitative comparison of different adaptive sampling strategies.}
+\label{tab:active_clean}
+\begin{tabular}{lrrr}
+\toprule
+Method & Intensity MSE & Mean profile MSE & Std profile MSE \\
+\midrule
+Ours    & \textbf{6.190e-02} & \textbf{2.710e-06} & \textbf{2.320e-07} \\
+Random  & 7.010e-02 & 4.950e-06 & 4.870e-07 \\
+Uniform & 3.430e-01 & 4.870e-06 & 3.590e-07 \\
+\bottomrule
+\end{tabular}
+\vspace{-3mm}
+\end{table}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/ablation_v2.pdf}
+\caption{\textbf{Effect of statistical moment-matching.} 
+Spectral recovery results obtained with (orange) and without (blue) 
+moment-matching constraints for (a) the mean and (b) the standard deviation 
+profiles.}
+    \label{fig:ablation}
+    \vspace{-3mm}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figs/sampling_cmp_v3.pdf}
+    \caption{\textbf{Comparison of 2DIR Spectrum Reconstruction Under Differing Sampling Constraints.} 
+    The box plot illustrates the median, the first and third quartile, and outliers of the reconstruction MSE obtained with and without sampling restrictions. Examples of the reconstructed spectra for each policy are displayed alongside the statistical data to highlight the impact of sampling limitations on spectral fidelity.}
+    \label{fig:sampling}
+    \vspace{-3mm}
+\end{figure}
+
+
+\subsection{Ablation Tests}
+
+
+\subsubsection{Statistic-Moment Constraint}
+
+To validate the impact of the statistic-moment constraint detailed in Sec.~\ref{subsec:loss_func}, we performed an ablation study by excluding the statistical and physical constraints from the optimization objective. As illustrated in Fig.~\ref{fig:ablation}, relying solely on $\mathcal{L}_{\mathrm{MSE}}$ results in significant deviations in the recovered spatial evolution profiles ($\mu_M$ and $\sigma_M$), even when the spectral intensities appear visually consistent with the ground truth. This discrepancy arises because $\mu_M$ and $\sigma_M$ are derived moments (Eq.~\ref{eq:mean_std}); unlike pixel-wise intensity, they are global descriptors highly sensitive to the probability distribution shape and slight spectral artifacts.
+
+\subsubsection{Sampling Restrictions}In Fig.~\ref{fig:sampling}, we compare 2DIR spectrum reconstruction results using two distinct sampling strategies with identical sample counts: one following the sampling restriction (retaining the first five $t_1$ samples) and one violating it (omitting three of those initial samples), where the examples of corresponding sampling patterns are visualized in Fig.~\ref{fig:sampling}(c) and (d), respectively. To ensure robustness, we deploy each strategy 10 times and calculated the resulting statistics. As illustrated in Fig.~\ref{fig:sampling}(a) and (e), reconstructions following the sampling restriction consistently outperform those that violate the restriction. The results are further validated by the visual comparisons in Fig.~\ref{fig:sampling}(g) and (h).
+
+This performance gap arises from the interplay between the rapidly decaying nature of the temporal signal and the inductive biases of the INR. In the time domain of 2DIR spectroscopy, the earliest samples capture the highest signal amplitude and establish the absolute phase of the underlying oscillations \cite{zanni2020hyperspectral, doi:10.1021/bk-2021-1398.ch006}. Drawing a parallel to nuclear magnetic resonance spectroscopy, omitting these initial high-amplitude samples severely underconstrains the signal, fundamentally introducing phase ambiguity into the spectral reconstruction \cite{ravera2021phase}. Algorithmically, INRs inherit the characteristic spectral bias of standard neural networks, prioritizing the learning of dominant, low-frequency structures such as the overall signal envelope \cite{rahaman2019spectral}. Because this initial decay defines the macroscopic signal envelope, the INR relies on these high-energy samples as its primary structural anchors; without them, the reconstruction problem becomes underspecified \cite{yuce2022structured}. When these boundary anchors are captured (Fig.~\ref{fig:sampling}(i)), the INR is sufficiently constrained to reliably establish the global phase. Conversely, without the precise alignment of these initial oscillations, the network must extrapolate the highest-amplitude onset. While Fourier-feature MLPs excel at interpolation \cite{tancik2020fourier}, they struggle to extrapolate; their harmonic basis functions often diverge unpredictably outside the training domain \cite{fesser2023understanding}. Furthermore, because the time and frequency domains are globally coupled, compensatory errors at this extrapolated boundary inevitably corrupt the entire sequence, manifesting as widespread spectral leakage and phase misalignment \cite{gottlieb1997gibbs}. Consequently, as shown in Fig.~\ref{fig:sampling}(j), the network overfits the low-amplitude tail while hallucinating unphysical variations at the poorly constrained boundary.
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=\textwidth]{Figs/adaptive_results_v3.pdf}
+     \caption{\textbf{Reconstruction results from different sampling strategies.} 
+     We overlay (a) peak-intensity, (b) mean, and (c) standard-deviation profiles derived from spectra reconstructed using different sampling strategies.}
+     \label{fig:adaptive_result}
+     \vspace{-3mm}
+\end{figure}
+
+\subsection{Adaptive Sampling Results}
+\label{ssec: adaptive}
+
+We compare multiple sampling strategies under a consistent experimental setup. Specifically, we first include the interval endpoints and then apply three strategies: the proposed loss-driven sampling, uniform sampling, and random sampling \cite{humston2017compressively, bhattacharya2017accelerating, humston2019optimized}. As summarized in Fig.~\ref{fig:adaptive_result}, the proposed loss-aware sampling achieves the best alignment across all evaluation metrics, whereas the other two approaches fail to capture the underlying trends. Notably, all strategies utilize only 1/16 of the maximum sampling budget. As the sampling density increases beyond this regime, the performance gap between methods diminishes due to the generalization capability of the proposed neural representation framework. 
+
+\subsection{Limitations and Possible Extensions}
+
+The proposed method currently encounters scalability limitations when applied to extended 4DIR data acquisition ranges. Specifically, the efficacy of our normalization scheme diminishes when spectral lobes occupy only a minor fraction of the $(\omega_1, \omega_3)$ plane, as the spectral energy becomes compressed within a narrow interval of the normalized $[0,1]$ range. Potential solutions to this sparsity issue include adaptive coordinate networks, multi-resolution encodings~\cite{martel2021acorn, yu2021plenoctrees}, or importance-weighted training strategies that prioritize high-energy regions~\cite{raissi2019physics}. A further limitation involves extrapolation performance; although coordinate-based representations are well-suited for interpolation, they easily fail to extrapolate unsampled spectral coordinates, a common vulnerability in standard MLP architectures~\cite{chen2021learning, wei2024nermo}. Furthermore, in practical deployment, adaptive sampling requires frequent alternation between optimization and data acquisition, making the total elapsed time longer than theoretical estimates. We leave the optimization of this workflow as a direction for future research. Finally, while this study decouples oscillatory and non-oscillatory temporal variations, these dynamics may co-exist along the same dimension in complex systems; capturing such heterogeneous variations may necessitate further architectural refinements to the neural representation. 
+
+
+In addition to these methodological refinements, extending our model to other CMDS modalities offers significant potential for broader application. For instance, transient absorption microscopy~\cite{zhu2020transient, gross2023progress}, which also exhibits oscillatory and non-oscillatory population dynamics, could significantly benefit from this approach. Applying our INR-based framework to these slowly varying signals could decrease the number of samples, accelerating imaging while preserving the underlying dynamics.
+%\input{Sections/4_Experiments}
+\section{Conclusion}
+
+The time-consuming issue has been concerning in collecting high-quality 2DIR and other hypercube data. To overcome this issue, we propose a physics-informed model that incorporates MLP-based spectral representation and a loss-aware adaptive sampling strategy. Experimental results show that the proposed model achieves high fidelity recovery using few data aggregation counts and sparse sampling along population-time. The probabilistic analysis demonstrates that the spectral dynamics are accurately preserved. In addition, by incorporating an IRFT-based optimization, our model manages to reconstruct rapid oscillations even with sparsely sampled signals along the coherence time axis. The incorporation of loss-driven active sampling further improves data efficiency. These advances highlight a path toward efficient, physics-aware acquisition of 2DIR, transient absorption microscopy and any hypercube data.
+
+\section{Acknowledgement}
+
+We acknowledge Mason Valentine for inspirations and technical supports in this work.
+% \input{Sections/backup}
+
+
+
+%%%%%%%%%% Inlined bibliography for single-file submission:
+\begin{thebibliography}{10}
+\newcommand{\enquote}[1]{``#1''}
+
+\bibitem{goetz1985imaging}
+A.~F. Goetz, G.~Vane, J.~E. Solomon, and B.~N. Rock, \enquote{Imaging spectrometry for earth remote sensing,} {\protect\JournalTitle{Science}} \textbf{228}, 1147--1153 (1985).
+
+\bibitem{chang2003hyperspectral}
+C.-I. Chang, \enquote{Hyperspectral imaging: techniques for spectral detection and classification,} {\protect\JournalTitle{Kluwer Academic/Plenum Publishers}}  (2003).
+
+\bibitem{zanni2020hyperspectral}
+M.~T. Zanni, \enquote{Hyperspectral 2d ir imaging: Principles and applications to biological and materials systems,} in \emph{2020 45th International Conference on Infrared, Millimeter, and Terahertz Waves (IRMMW-THz),}  (IEEE, 2020), pp. 1--2.
+
+\bibitem{doi:10.1021/bk-2021-1398.ch006}
+C.~A. Tibbetts, A.~B. Wyatt, B.~M. Luther, and A.~T. Krummel, \emph{Practical Aspects of 2D IR Microscopy}, chap.~6, pp. 109--134.
+
+\bibitem{Baiz:14}
+C.~R. Baiz, D.~Schach, and A.~Tokmakoff, \enquote{Ultrafast 2d ir microscopy,} {\protect\JournalTitle{Opt. Express}} \textbf{22}, 18724--18735 (2014).
+
+\bibitem{ostrander2016spatially}
+J.~S. Ostrander, A.~L. Serrano, A.~Ghosh, and M.~T. Zanni, \enquote{Spatially resolved two-dimensional infrared spectroscopy via wide-field microscopy,} {\protect\JournalTitle{ACS Photonics}} \textbf{3}, 1315--1323 (2016).
+
+\bibitem{baiz2011ultrafast}
+C.~R. Baiz and A.~T. Krummel, \enquote{Ultrafast chemical imaging with 2d ir microscopy,} {\protect\JournalTitle{Optics Express}} \textbf{19}, 16393--16400 (2011). Note: Check specific authorship for microscopy in your specific context, often attributed to Krummel or Zanni groups.
+
+\bibitem{hagen2013review}
+N.~Hagen and M.~W. Kudenov, \enquote{Review of snapshot spectral imaging technologies,} {\protect\JournalTitle{Optical Engineering}} \textbf{52}, 090901--090901 (2013).
+
+\bibitem{gehm2007single}
+M.~E. Gehm, R.~John, D.~J. Brady, \emph{et~al.}, \enquote{Single-shot compressive spectral imaging with a dual-disperser architecture,} {\protect\JournalTitle{Optics express}} \textbf{15}, 14013--14027 (2007).
+
+\bibitem{helbing2010compact}
+J.~Helbing and P.~Hamm, \enquote{Compact implementation of fourier transform two-dimensional ir spectroscopy without phase ambiguity,} {\protect\JournalTitle{Journal of the Optical Society of America B}} \textbf{28}, 171--178 (2010).
+
+\bibitem{bhattacharya2017accelerating}
+I.~Bhattacharya, J.~J. Humston, C.~M. Cheatum, and M.~Jacob, \enquote{Accelerating two-dimensional infrared spectroscopy while preserving lineshapes using giraf,} {\protect\JournalTitle{Optics letters}} \textbf{42}, 4573--4576 (2017).
+
+\bibitem{sanders2012compressed}
+J.~N. Sanders, S.~K. Saikin, S.~Mostame, \emph{et~al.}, \enquote{Compressed sensing for multidimensional spectroscopy experiments,} {\protect\JournalTitle{The journal of physical chemistry letters}} \textbf{3}, 2697--2702 (2012).
+
+\bibitem{dunbar2013accelerated}
+J.~A. Dunbar, D.~G. Osborne, J.~M. Anna, and K.~J. Kubarych, \enquote{Accelerated 2d-ir using compressed sensing,} {\protect\JournalTitle{The Journal of Physical Chemistry Letters}} \textbf{4}, 2489--2492 (2013).
+
+\bibitem{humston2017compressively}
+J.~J. Humston, I.~Bhattacharya, M.~Jacob, and C.~M. Cheatum, \enquote{Compressively sampled two-dimensional infrared spectroscopy that preserves line shape information,} {\protect\JournalTitle{The Journal of Physical Chemistry A}} \textbf{121}, 3088--3093 (2017).
+
+\bibitem{xu2023cutting}
+C.~Xu and C.~R. Baiz, \enquote{Cutting through the noise: Extracting dynamics from ultrafast spectra using dynamic mode decomposition,} {\protect\JournalTitle{The Journal of Physical Chemistry A}} \textbf{127}, 9853--9862 (2023).
+
+\bibitem{al2022generative}
+Z.~A. Al-Mualem and C.~R. Baiz, \enquote{Generative adversarial neural networks for denoising coherent multidimensional spectra,} {\protect\JournalTitle{The Journal of Physical Chemistry A}} \textbf{126}, 3816--3825 (2022).
+
+\bibitem{chen2019learning}
+Z.~Chen and H.~Zhang, \enquote{Learning implicit fields for generative shape modeling,} in \emph{Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,}  (2019), pp. 5939--5948.
+
+\bibitem{park2019deepsdf}
+J.~J. Park, P.~Florence, J.~Straub, \emph{et~al.}, \enquote{Deepsdf: Learning continuous signed distance functions for shape representation,} in \emph{Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,}  (2019), pp. 165--174.
+
+\bibitem{raissi2019physics}
+M.~Raissi, P.~Perdikaris, and G.~E. Karniadakis, \enquote{Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations,} {\protect\JournalTitle{Journal of Computational physics}} \textbf{378}, 686--707 (2019).
+
+\bibitem{hao2022physics}
+Z.~Hao, S.~Liu, Y.~Zhang, \emph{et~al.}, \enquote{Physics-informed machine learning: A survey on problems, methods and applications,} {\protect\JournalTitle{arXiv preprint arXiv:2211.08064}}  (2022).
+
+\bibitem{ho2025differentiable}
+C.-J. Ho, Y.~Belhe, S.~Rotenberg, \emph{et~al.}, \enquote{A differentiable wave optics model for end-to-end computational imaging system optimization,} in \emph{Proceedings of the IEEE/CVF International Conference on Computer Vision,}  (2025), pp. 28042--28051.
+
+\bibitem{martel2021acorn}
+J.~N. Martel, D.~B. Lindell, C.~Z. Lin, \emph{et~al.}, \enquote{Acorn: Adaptive coordinate networks for neural representation,} {\protect\JournalTitle{ACM Trans. Graph. (SIGGRAPH)}}  (2021).
+
+\bibitem{hamm1998structure}
+P.~Hamm, M.~Lim, and R.~M. Hochstrasser, \enquote{Structure of the amide i band of peptides measured by femtosecond nonlinear-infrared spectroscopy,} {\protect\JournalTitle{The Journal of Physical Chemistry B}} \textbf{102}, 6123--6138 (1998).
+
+\bibitem{mukamel1995principles}
+S.~Mukamel, \enquote{Principles of nonlinear optical spectroscopy,} {\protect\JournalTitle{( Oxford University Press)}}  (1995).
+
+\bibitem{yang2023enabling}
+Z.~Yang, H.~H. Bhakta, and W.~Xiong, \enquote{Enabling multiple intercavity polariton coherences by adding quantum confinement to cavity molecular polaritons,} {\protect\JournalTitle{Proceedings of the National Academy of Sciences}} \textbf{120}, e2206062120 (2023).
+
+\bibitem{dicke2021application}
+S.~S. Dicke, A.~M. Alperstein, K.~L. Schueler, \emph{et~al.}, \enquote{Application of 2d ir bioimaging: Hyperspectral images of formalin-fixed pancreatic tissues and observation of slow protein degradation,} {\protect\JournalTitle{The Journal of Physical Chemistry B}} \textbf{125}, 9517--9525 (2021).
+
+\bibitem{tiwari2018spatially}
+V.~Tiwari, Y.~A. Matutes, A.~T. Gardiner, \emph{et~al.}, \enquote{Spatially-resolved fluorescence-detected two-dimensional electronic spectroscopy probes varying excitonic structure in photosynthetic bacteria,} {\protect\JournalTitle{Nature Communications}} \textbf{9}, 4219 (2018).
+
+\bibitem{zhu2020transient}
+Y.~Zhu and J.-X. Cheng, \enquote{Transient absorption microscopy: Technological innovations and applications in materials science and life science,} {\protect\JournalTitle{The Journal of Chemical Physics}} \textbf{152} (2020).
+
+\bibitem{gross2023progress}
+N.~Gross, C.~T. Kuhs, B.~Ostovar, \emph{et~al.}, \enquote{Progress and prospects in optical ultrafast microscopy in the visible spectral region: Transient absorption and two-dimensional microscopy,} {\protect\JournalTitle{The Journal of Physical Chemistry C}} \textbf{127}, 14557--14586 (2023).
+
+\bibitem{agarap2018deep}
+A.~F. Agarap, \enquote{Deep learning using rectified linear units (relu),} {\protect\JournalTitle{arXiv preprint arXiv:1803.08375}}  (2018).
+
+\bibitem{willoughby1979solutions}
+R.~A. Willoughby, \enquote{Solutions of ill-posed problems (an tikhonov and vy arsenin),} {\protect\JournalTitle{Siam Review}} \textbf{21}, 266 (1979).
+
+\bibitem{aster2018parameter}
+R.~C. Aster, B.~Borchers, and C.~H. Thurber, \emph{Parameter estimation and inverse problems} (Elsevier, 2018).
+
+\bibitem{kingma2014adam}
+D.~P. Kingma and J.~Ba, \enquote{Adam: A method for stochastic optimization,} {\protect\JournalTitle{arXiv preprint arXiv:1412.6980}}  (2014).
+
+\bibitem{tancik2020fourier}
+M.~Tancik, P.~Srinivasan, B.~Mildenhall, \emph{et~al.}, \enquote{Fourier features let networks learn high frequency functions in low dimensional domains,} {\protect\JournalTitle{Advances in neural information processing systems}} \textbf{33}, 7537--7547 (2020).
+
+\bibitem{ravera2021phase}
+E.~Ravera, \enquote{Phase distortion-free paramagnetic nmr spectra,} {\protect\JournalTitle{Journal of Magnetic Resonance Open}} \textbf{8}, 100022 (2021).
+
+\bibitem{rahaman2019spectral}
+N.~Rahaman, A.~Baratin, D.~Arpit, \emph{et~al.}, \enquote{On the spectral bias of neural networks,} in \emph{International conference on machine learning,}  (PMLR, 2019), pp. 5301--5310.
+
+\bibitem{yuce2022structured}
+G.~Y{\"u}ce, G.~Ortiz-Jim{\'e}nez, B.~Besbinar, and P.~Frossard, \enquote{A structured dictionary perspective on implicit neural representations,} in \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,}  (2022), pp. 19228--19238.
+
+\bibitem{paszke2019pytorch}Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga, L. \& Others Pytorch: An imperative style, high-performance deep learning library. {\em Advances In Neural Information Processing Systems}. \textbf{32} (2019)
+
+\bibitem{fesser2023understanding}
+L.~Fesser, L.~D'Amico-Wong, and R.~Qiu, \enquote{Understanding and mitigating extrapolation failures in physics-informed neural networks,} {\protect\JournalTitle{arXiv preprint arXiv:2306.09478}}  (2023).
+
+\bibitem{gottlieb1997gibbs}
+D.~Gottlieb and C.-W. Shu, \enquote{On the gibbs phenomenon and its resolution,} {\protect\JournalTitle{SIAM review}} \textbf{39}, 644--668 (1997).
+
+\bibitem{humston2019optimized}
+J.~J. Humston, I.~Bhattacharya, M.~Jacob, and C.~M. Cheatum, \enquote{Optimized reconstructions of compressively sampled two-dimensional infrared spectra,} {\protect\JournalTitle{The Journal of chemical physics}} \textbf{150} (2019).
+
+\bibitem{yu2021plenoctrees}
+A.~Yu, R.~Li, M.~Tancik, \emph{et~al.}, \enquote{Plenoctrees for real-time rendering of neural radiance fields,} in \emph{Proceedings of the IEEE/CVF international conference on computer vision,}  (2021), pp. 5752--5761.
+
+\bibitem{chen2021learning}
+Y.~Chen, S.~Liu, and X.~Wang, \enquote{Learning continuous image representation with local implicit image function,} in \emph{Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,}  (2021), pp. 8628--8638.
+
+\bibitem{wei2024nermo}
+D.~Wei, H.~Sun, X.~Sun, and S.~Hu, \enquote{Nermo: Learning implicit neural representations for 3d human motion prediction,} in \emph{European Conference on Computer Vision,}  (Springer, 2024), pp. 409--427.
+
+\end{thebibliography}
+
+%%%%%%%%%% If preparing manually:
+% \begin{thebibliography}{1}
+% \newcommand{\enquote}[1]{``#1''}
+
+% \bibitem{Zhang:14}
+% Y.~Zhang, S.~Qiao, L.~Sun, Q.~W. Shi, W.~Huang, L.~Li, and Z.~Yang,
+%   \enquote{Photoinduced active terahertz metamaterials with nanostructured
+%   vanadium dioxide film deposited by sol-gel method,}
+%   {\protect\JournalTitle{Optics Express}} \textbf{22}, 11070--11078 (2014).
+
+% \bibitem{Optica}
+% {Optica}, \enquote{{Optica Publishing Group},}
+%   \url{http://www.opg.optica.org}.
+
+% \bibitem{FORSTER2007}
+% P.~Forster, V.~Ramaswamy, P.~Artaxo, T.~Bernsten, R.~Betts, D.~Fahey,
+%   J.~Haywood, J.~Lean, D.~Lowe, G.~Myhre, J.~Nganga, R.~Prinn, G.~Raga,
+%   M.~Schulz, and R.~V. Dorland, \enquote{Changes in atmospheric consituents and
+%   in radiative forcing,} in \enquote{Climate Change 2007: The Physical Science
+%   Basis. Contribution of Working Group 1 to the Fourth Assesment Report of
+%   Intergovernmental Panel on Climate Change,}  S.~Solomon, D.~Qin, M.~Manning,
+%   Z.~Chen, M.~Marquis, K.~B. Averyt, M.~Tignor, and H.~L. Miler, eds.
+%   (Cambridge University Press, 2007).
+
+% \end{thebibliography}
+
+\end{document}\documentclass{optica-article}
+
+\journal{opticajournal} % for journals or Optica Open
+
+\articletype{Research Article}
+
+% --- Table sizing & spacing ---
+\usepackage{etoolbox}
+\AtBeginEnvironment{table}{\small}      % or \footnotesize if you need smaller
+\setlength{\tabcolsep}{5pt}             % default ~6pt; tighten column padding
+\renewcommand{\arraystretch}{1.1}       % default 1.0; keep rows compact but readable
+
+% (Optional, improves look)
+\usepackage{booktabs}                   % for \toprule \midrule \bottomrule
+
+\usepackage{lineno}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\linenumbers % Turn off line numbering for Optica Open preprint submissions.
+
+\begin{document}
+
+\title{Accelerating 4D Hyperspectral Imaging through Physics-Informed Neural Representation and Adaptive Sampling}
+
+\author{
+Chi-Jui Ho,\authormark{1}
+Harsh Bhakta,\authormark{2}
+Xiong Wei,\authormark{2}
+and Nicholas Antipa\authormark{1}
+}
+
+\address{
+\authormark{1}Dept. of Electrical and Computer Engineering, UC San Diego, La Jolla, CA 92093, USA\\
+\authormark{2}Dept. of Chemistry and Biochemistry, UC San Diego, La Jolla, CA 92093, USA
+}
+
+\email{\authormark{*}\{chh009, hhbhakta, w2xiong, nantipa\}@ucsd.edu} %% email address is required; see note below about the corresponding author designation
+
+% use {asbstract*} to suppress the copyright line. Copyright information will be added in production
+
+\begin{abstract*} 
+High-dimensional hyperspectral imaging (HSI) enables the visualization of ultrafast molecular dynamics and complex, heterogenous spectra. However, applying this capability to resolve spatially varying vibrational couplings in two-dimensional infrared (2DIR) spectroscopy, a type of coherent multidimensional spectroscopy (CMDS), necessitates prohibitively long data acquisition, driven by dense Nyquist sampling requirements and the need for extensive signal accumulation. To address this challenge, we introduce a physics-informed neural representation approach that efficiently reconstructs dense 2DIR hyperspectral images from sparse experimental measurements. In particular, we used a multilayer perceptron (MLP) to model the relation between the sub-sampled 4D coordinates and their corresponding spectral intensities, and recover densely sampled 4D spectra from limited observations. The reconstruction results demonstrate that our method, using a fraction of the samples, faithfully recovers both oscillatory and non-oscillatory spectral dynamics in experimental measurement. Moreover, we develop a loss-aware adaptive sampling method to progressively introduce potentially informative samples for iterative data collection while conducting experiments. Experimental results show that the proposed approach achieves high-fidelity spectral recovery using only $1/32$ of the sampling budget, as opposed to exhaustive sampling, effectively reducing total experiment time by up to 32-times. This framework offers a scalable solution for accelerating any experiments with hypercube data, including multidimensional spectroscopy and hyperspectral imaging, paving the way for rapid chemical imaging of transient biological and material systems.
+
+\end{abstract*}
+
+\section{Introduction}
+\label{sec:intro}
+
+Conventional hyperspectral imaging (HSI) captures spectral responses of materials across the spatial domain to encode chemical composition through linear absorption or emission~\cite{goetz1985imaging, chang2003hyperspectral}. Nevertheless, the dimensionality of conventional HSI is insufficient to resolve the transient interactions, couplings, or structural dependencies in complex systems, which often requires additional frequency or temporal axes to resolve. Thus, spatially-resolved two-dimensional infrared (2DIR) spectroscopy, a high-dimensional modality within the HSI framework~\cite{zanni2020hyperspectral}, has been developed to extend the standard spatial-spectral data structure into the nonlinear regime~\cite{zanni2020hyperspectral,doi:10.1021/bk-2021-1398.ch006,Baiz:14}, recording frequency-frequency correlations to characterize intermolecular couplings and ultrafast dynamics~\cite{ostrander2016spatially, baiz2011ultrafast}.
+
+However, the acquisition of such high-dimensional data cubes is governed by a fundamental trade-off between resolution, signal-to-noise ratio (SNR), and acquisition speed~\cite{hagen2013review, gehm2007single}.  This bottleneck is particularly acute in 2DIR, where resolving complex dynamics necessitates exhaustive scanning along both the coherence and population time axes. To sample greater than the Nyquist criteria, hundreds of discrete steps are required per dimension, and when integrated with spatial mapping, the data volume grows exponentially. Furthermore, achieving sufficient SNR for these weak nonlinear signals demands long accumulation times at every coordinate to average out noise~\cite{helbing2010compact}. As a result, the combined requirements of signal averaging and high-resolution scanning necessitate hours to capture a single 2DIR data cube ~\cite{ostrander2016spatially}; when extended across multiple waiting times or spatial coordinates, total experiment times frequently reach several days~\cite{bhattacharya2017accelerating}.
+
+To reduce acquisition times, existing methods have explored reconstructing fully sampled data from undersampled measurements using both model-based and data-driven frameworks. Model-based methods leverage signal sparsity within compressed sensing frameworks \cite{sanders2012compressed, dunbar2013accelerated, humston2017compressively} or low-rank properties \cite{bhattacharya2017accelerating} to recover full 
+vibrational spectra from sparse measurements. In contrast, data-driven 
+approaches, including dynamic mode decomposition \cite{xu2023cutting} and 
+generative adversarial networks \cite{al2022generative}, learn complex signal 
+distributions to denoise spectra, thereby accelerating acquisition by reducing the number of required signal accumulations. While effective, these reconstruction strategies rely on either restrictive mathematical priors or extensive training datasets, limiting their generalization across diverse 2DIR and CMDS experimental conditions. At low sampling rates, model-based approaches often struggle to recover oscillatory and long-range signals. Furthermore, such recovery is constrained to dimensions defined within the initial parameterization, lacking the flexibility to incorporate across novel experimental dimensions. On the other hand, data-driven methods often necessitate extensive re-training for different molecular systems, which is difficult given the inherent scarcity of 2DIR data\cite{al2022generative}.
+
+\begin{figure*}[t]
+     \centering
+\includegraphics[width=0.95\textwidth]{Figs/teaser_v1_5.pdf}
+     \caption{\textbf{Hyper-spectrum reconstruction through neural rendering.} We sparsely sample the hyper-spectrum collected from the interaction between ultrafast pulses and samples, and then use the proposed neural rendering framework to reconstruct the dense hyper-spectrum data in both oscillatory and non-oscillatory regimes.}
+     \vspace{-2mm}
+     \label{fig:teaser}
+\end{figure*}
+
+To address these limitations, we apply Implicit Neural Representations (INRs)\cite{chen2019learning, park2019deepsdf}, which model hyper-spectral data as a continuous field, rather than as a discrete grid of isolated measurements. In this paper, the INR is achieved by a Multi-Layer Perceptron (MLP), as illustrated in Fig.~\ref{fig:teaser}. Acting as a flexible nonlinear regression tool, the MLP learns to calculate the signal intensity for all queried experimental coordinates, facilitating high-fidelity reconstruction from limited samples. In particular, to capture rapidly varying temporal dynamics~\cite{raissi2019physics, hao2022physics, ho2025differentiable}, we apply an Inverse-Real-Fourier-Transoform (IRFT)-based optimization strategy to preserve signal structure. Furthermore, through effective nonlinear denoising, our INR generates high-fidelity spectra from measurements with low signal-averaging counts, thereby further accelerating the data collection process. Complementing this representation, we introduce an adaptive sampling algorithm inspired by dynamic importance sampling~\cite{martel2021acorn}, which uses the representation error as a surrogate for uncertainty at different regions. Thus, our method progressively introduces samples close to high mismatches to achieve efficient utilization of sampling budgets.
+% accommodates irregular sampling.
+
+\noindent Our main contributions are as follows:
+\begin{itemize}
+    \item We propose a coordinate-based neural field framework for the continuous, data-efficient reconstruction of multidimensional IR spectra from sparse measurements.
+    \item Our proposed system achieves high-fidelity spectral recovery despite low signal-averaging counts and undersampling along both coherence and population time axes, yielding up to a 32-fold increase in data efficiency.
+    \item We develop a loss-driven adaptive sampling algorithm that prioritizes measurements in regions of high reconstruction sensitivity, enabling targeted and interpretable refinement.
+\end{itemize}
+
+
+%Multidimensional infrared (MDIR) spectroscopy is a powerful nonlinear technique for probing molecular vibrations to uncover couplings and relaxation dynamics in heterogeneous molecular systems. By correlating excitation and detection frequencies across different controlled population times, MDIR encodes hydrogen bonding, secondary structure, and energy-transfer pathways at femtosecond timescale~\cite{hamm2011concepts, cho2008coherent}. Thus, MDIR is an important technique for dynamics analysis in biomolecules, peptides, and functional materials~\cite{khalil2003coherent, lee2014structural}.
+%\input{Sections/1_Introduction} 
+
+
+\section{Materials and Methods}
+\label{sec:mm}
+% Most methods only do 2D using a 2D detector. We should emphasize that our work should apply for any scanning dimension. 2DIR audience don't think about dimensionality, so they might be confused. We should say that a typical detector is 1- or 2-dimensional. If additional dimensions are added via scanning, they are very time consuming. WE're using a specific technique that is widely used in chemistry and material science (4D data). If dimension of detection is I, spectrum dimensions is N, there are N-I dimensions to accelerate. Mention some examples. Hyperdimensional imaging is much more common. We may need to mention smooth spectra vs. fine spectral features. Transient absorption microscopy (pump-probe scanning imaging methods). 
+
+
+\begin{figure*}[t]
+    \centering
+    % --- First Subfigure ---
+    \begin{subfigure}[b]{0.29\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figs/system.pdf}
+        \caption{System diagram.}
+        \label{fig:dim_a}
+    \end{subfigure}
+    \hfill % Adds horizontal space between the two images
+    % --- Second Subfigure ---
+    \begin{subfigure}[b]{0.68\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Figs/dimensions_v5.pdf}
+        \caption{Illustrations of different dimensions.}
+        \label{fig:dim_b}
+    \end{subfigure}
+
+    \caption{\textbf{Dimensionality of Spatially-Resolved 2DIR.} a) The system diagram. b) Illustration of the four coordinate axes defining the hyperspectral volume. Each 2DIR frame parameterized by $(\omega_1, \omega_3)$, while the temporal and spatial variations are recorded in different waiting time $t_2$ and spatial position $x$.}
+    \vspace{-2mm}
+    \label{fig:dimension}
+\end{figure*}
+
+
+\subsection{Theoretical Framework and Acquisition of Spatially-Resolved 2DIR}
+\label{subsec:mdir_theory}
+
+Hyperspectral imaging (HSI) captures spectral signatures at every spatial coordinate to characterize material composition. While standard HSI efficiently assigns a static 1D linear spectrum to each pixel, the characterization of complex systems often necessitates nonlinear optical technique to capture underlying molecular interactions and time-dependent evolution. To fulfill this capability, Spatially-Resolved 2D IR serves as a multidimensional spectroscopic expansion of the HSI framework \cite{zanni2020hyperspectral}. Similar to regular 2DIR \cite{hamm1998structure,mukamel1995principles}, this advanced hyperspectral modality probes the nonlinear vibrational manifold to resolve the structural dynamics and molecular couplings within the system, but not with spatial resolution.
+
+\subsubsection{Nonlinear Signal Generation and Temporal Evolution}
+
+To disentangle the specific vibrational couplings and relaxation processes that constitute these dynamics, 2DIR measures the nonlinear response of a material using a pulse sequence consisting of three ultrafast infrared pulses in a pump-probe geometry with distinct time intervals, as shown in Fig. ~\ref{fig:dim_a}:
+
+\begin{enumerate}
+    \item \textbf{Coherence Time ($t_1$):} The delay between the first two excitation (pump) pulses, modulated via a pulse shaper, during which the system evolves in a vibrational coherence state.
+    \item \textbf{Population Time ($t_2$):} The waiting time between the second pump pulse and a weaker probe pulse, controlled by a motorized mechanical delay stage to capture non-oscillatory dynamics such as vibrational relaxation, and sometimes, oscillatory dynamics if coherence states are involved.
+    \item \textbf{Detection Time ($t_3$):} The temporal axis of the emitted signal following the probe pulse, describing the free-induction decay of the nonlinear response.
+\end{enumerate}
+
+During these intervals, the evolution of coherent and population states is recorded through the nonlinear optical signal, which is subsequently dispersed by a grating spectrometer to resolve the probe frequency ($\omega_3$). To visualize the correlation between states excited before and after $t_2$, a Fourier Transform is performed along the coherence time $t_1$ to yield the pump axis $\omega_1$. This transformation results in a pump-probe correlation spectrum parameterized by $(\omega_1, \omega_3)$.
+
+\subsubsection{Spatial Resolution and Acquisition Dimensions}
+
+In addition to spectral dimensions, spatially-resolved 2DIR incorporates a spatial dimension ($x$) via a monochromator slit, which constrains the input field to select a line of an image of the sample \cite{yang2023enabling}. This configuration enables the measurement to resolve the spatiotemporal evolution of molecular states. Consequently, the spectroscopic measurement is partitioned into four dimensions $(\omega_1, \omega_3, t_2, x)$, encoding molecular couplings, energy exchange, and relaxation dynamics, and is ultimately collected by a HgCdTe Focal Plane Array (PhaseTech). 
+
+As shown in Fig. \ref{fig:dimension}, in this detector configuration, the spatial and detection frequency dimensions $(x, \omega_3)$ are naturally dispersed and multiplexed onto the array, whereas the temporal dimensions $(t_1, t_2)$ must be exhaustively scanned. Therefore, our optimization efforts focus specifically on these controllable acquisition dimensions ($t_1, t_2$) rather than the natively resolved axes.
+
+% In addition to these spectral dimensions, spatially-resolved 2DIR incorporates a spatial dimension ($x$) via a monochromator slit, which constrains the input field to select focused signal images. The resulting line cut enables the measurement to resolve the spatiotemporal evolution of molecular states. Consequently, the spectroscopic measurement is partitioned into four dimensions, encoding molecular couplings, energy exchange, and relaxation dynamics, and is ultimately collected by a HgCdTe Focal Plane Array (PhaseTech). In our detector configuration, $(x, \omega_3)$ are naturally dispersed and multiplexed, while $(t_1, t_2)$ are exhaustively scanned. Therefore, our optimization efforts focus on the controllable acquisition dimensions ($t_1, t_2$) rather than the natively resolved axes.
+
+\subsubsection{Acquisition Protocol.} 
+To collect the full 2D IR hyperspectral data, we scan the coherence time $t_1$ from 0 to 8000~fs in 32~fs increments, and the population time $t_2$ from -6~ps to 12~ps in 0.2~ps steps. To overcome bandwidth limitations imposed by the pulse shaper resolution, we implement a rotating frame strategy, which down-shifts the oscillation frequency of the measured coherence signal and permits accurate sampling at larger time steps. The probe frequency $\omega_3$ spans 1906.6--2058.7~cm$^{-1}$ with a resolution of $1.197 \pm 0.001$~cm$^{-1}$/pixel. The spatial axis ($x$) covers a field of view of at least $\pm 200$~$\mu$m with a resolution of $24 \pm 6$~$\mu$m/pixel, depnding on the system configuration. Finally, to enhance the Signal-to-Noise Ratio, measurements at each $(t_1, t_2)$ coordinate are averaged over 20 accumulations ($r$). In average, it takes 2 hours and 10 minutes to collect a four-dimensional array with coordinates $(t_2, x, \omega_1, \omega_3)$ using $r=20$. 
+
+\subsubsection{Generalization to Coherent Multidimensional Spectroscopy.}
+The resulting 4D dataset poses a reconstruction challenge inherent to 2DIR spectroscopy, where signal dimensions exhibit two distinct behaviors: oscillatory evolution arising from coherent states ($t_1$), and non-oscillatory decay or variation associated with population dynamics and spatial distribution ($t_2, x$). Because our reconstruction approach addresses these fundamental signal dynamics, it offers a generalized methodology applicable to various CMDS techniques, such as bioimaging \cite{dicke2021application, tiwari2018spatially} and transient absorption microscopy \cite{zhu2020transient, gross2023progress}.
+
+% To capture 4D data set, we integrated a standard 2D IR spectroscopic setup with a hyperspectral imaging detection module, allowing us to generate nonlinear vibrational signals and spatially resolve them along a specific coordinate axis.
+
+% With different controlled time delays, the spectroscopic measurement is disentangled into multiple dimensions, encoding molecular couplings, energy exchange, and relaxation dynamics, which are inaccessible to linear methods.
+
+% The imaging train employs microscopic lenses to magnify the signal, followed by a slit and grating spectrometer. 
+
+ %At each $t_1$ point, we acquire four spectra corresponding to different phase cycling conditions, rephasing and non-rephasing pathways for ground and excited states, which are combined to isolate the absorptive 2D IR signal. 
+
+ %\begin{itemize}
+    %\item \textbf{Spectral Dimensions ($\omega_1, \omega_3$):} To construct the 2D correlation map between states excited before and after  t$_2$ , we transform the time-domain signals into spectral axes. The probe axis $\omega_3$ is experimentally resolved by dispersing the emitted signal through a grating. In contrast, the pump axis $\omega_1$ is computationally retrieved via performing Fourier Transform along the coherence time $t_1$.
+    % \item \textbf{Temporal Dimension ($t_2$):} By iteratively scanning the waiting time $t_2$, we resolve the temporally evolved dynamics of the coherent or population states.
+    % \item \textbf{Spatial Dimension ($x$):} In our modified configuration, a spatial dimension is introduced by selecting the focused signal images through the monochromator slit, resulting a line cut, allowing the measurement to resolve the spatiotemporal evolution of molecular states.
+%\end{itemize}
+
+% which evolve according to the internal kinetics of the system
+
+% By controlling the polarization, phase, and time delay of the incoming fields, the spectroscopic measurement is disentangled into multiple dimensions. The resulting measures encode molecular couplings, energy exchange, and relaxation dynamics, which are inaccessible to linear methods. %Specifically, the amplitude, phase, and inter-pulse delay ($t_1$) of the pump beam is modulated via a pulse shaper, and the waiting time ($t_2$) is controlled by a motorized mechanical delay stage. Both the pump and probe beams are focused and overlapped onto the sample cell in a pump-probe geometry using CaF$_2$ lenses. 
+
+
+
+ % To probe different spatial orientations without moving the sample, a K-mirror is inserted in the beam path to rotate the image plane. 
+
+
+%Background signals are removed by subtracting reference spectra collected at $t_2 = -30$ ps. 
+
+%\subsubsection{Experimental Setup and Data Collection}
+%\label{subsec:data_collection}
+
+%The experimental frontend utilizes a Ti:Sapphire solid-state laser (Coherent) generating 800 nm pulses with 4 W power and 32 fs duration at a 1 kHz repetition rate. The laser beam passes through the optical parametric amplifier (Light Conversion) to produce signal and idler beams in the mid-infrared range. These beams are spatially and temporally overlapped onto a type-II AgGaS$_2$ difference frequency generation (DFG) crystal, yielding 5 $\mu m$ pulses (residual light is blocked by a Ge filter). A CaF$_2$ wedge splits this output into pump (90\%) and probe (10\%) lines.
+
+
+
+\subsection{Data Preparation and Structure}
+\label{subsec:data_prep}
+
+Using the 4D hypercube dataset described in Sec.~\ref{subsec:mdir_theory}, we simulate and pre-process measurements acquired under reduced sampling budgets as follows.
+
+\noindent \textbf{Signal accumulation ($r$).} As mentioned above, each experimental spectrum is produced by averaging 20 repeated measurements. To simulate data obtained in different data aggregation counts $r$, we average the spectrum with a subset of repeatedly sampled data.
+
+\noindent \textbf{Temporal subsampling.} Along the temporal axes $t_1$ and $t_2$, we randomly or periodically subsample the measurements to emulate data acquisition with lower temporal sampling rates. The remaining axes are kept fully sampled.
+
+\noindent \textbf{Normalizations.}
+In 2DIR spectra, the positive and negative signals may differ in amplitude by up to an order of magnitude. This imbalance can make it hard to recover any weaker peaks. To address this, we rescale the weaker peak to match the dynamic range of the stronger one prior to model fitting, and scale it back at the inference stage. In model training and inference, all input coordinates are normalized to $[0,1]$ to maintain consistent scaling across all dimensions.
+
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=1.0\textwidth]{Figs/MLP_v12.pdf}
+     \caption{\textbf{Our MLP-based neural representation model.} We construct neural representations for signals subsampled along either the population or coherence time dimensions. \textbf{Population:} A coordinate-based MLP is trained to learn the temporal dynamics along population time from sparsely sampled data and to generalize this knowledge to unsampled points during inference. \textbf{Coherence:} The MLP is optimized in the frequency domain, after which an IRFT is applied to recover estimated raw signals for loss computation, excluding intensities at unsampled coordinates. During inference, the trained network reconstructs rapidly varying 4D signals across the full coordinate domain.}
+     \vspace{-3mm}
+     \label{fig:MLP}
+\end{figure}
+
+\subsection{Neural Representation Algorithm}
+\label{subsec:algo}
+
+To model multidimensional IR spectroscopic dynamics in unsampled regions, we use Implicit Neural Representations (INRs) to formulate the data as a continuous function of its acquisition coordinates, rather than a discrete array of data points. By learning the underlying mapping between these experimental coordinates and the measured signal intensities, INRs are able to estimate continuous signal values even under low subsampling rates of the population ($t_2$) and coherence ($t_1$) time axes.
+
+\subsubsection{Implicit Neural Representation}
+
+
+INRs offer an alternative to conventional methods for modeling high-dimensional data~\cite{park2019deepsdf, chen2019learning}. Traditionally, signals are explicitly represented as discrete arrays of pixels or voxels, with values stored on a predefined resolution grid.  In contrast, INRs bypass this discrete grid by formulating a signal as a continuous function of its coordinates. With INRs, signals are no longer constrained by a fixed sampling rate but can be evaluated at any arbitrary coordinate, making the representation inherently resolution-independent. To parameterize this continuous function, INRs typically employ an MLP, which naturally maps continuous domains to complex outputs without requiring rigid, predefined analytical equations. Specifically, the MLP takes coordinates as inputs and generates the corresponding signal value at that exact location. The relationship between this input and output is parameterized by the tunable weights and biases across sequential fully-connected layers of the network. Through a series of matrix multiplications and nonlinear activations, the MLP predicts the signal values at the input coordinates. With model training, the tunable parameters are optimized to minimize the error against known signal intensities. Notably, this instance-specific optimization allows the MLP to learn the continuous topology of an individual signal without demanding the large training datasets required by data-driven algorithms.
+
+% While early INRs struggled to capture fine details, the introduction of Fourier feature encoding~\cite{tancik2020fourier} and sinusoidal representation networks~\cite{sitzmann2020implicit} enabled these models to accurately represent high-frequency and oscillatory signals. These advances, along with breakthroughs in volumetric rendering and view synthesis~\cite{mildenhall2021nerf, barron2021mip, barron2022mip, muller2022instant}, have established INRs as a powerful framework for solving complex inverse problems from limited measurements.
+
+%INRs model continuous mapping from coordinates to corresponding signal values. Park \textit{et al.}~\cite{park2019deepsdf} and Chen \textit{et al.}~\cite{chen2019learning} pioneered applying INRs to 3D representations. To mitigate the spectral bias inherent in standard INRs, Fourier feature encoding~\cite{tancik2020fourier} and sinusoidal representation networks ~\cite{sitzmann2020implicit} have been introduced to capture high-frequency and oscillatory signals. Mildenhall \textit{et al.} ~\cite{mildenhall2021nerf} further extended INRs to represent radiance fields and volume rendering, achieving novel view synthesis. Barron \textit{et al.} further addressed the aliasing issue~\cite{barron2021mip,barron2022mip}. Muller \textit{et al.} improved the training efficiency through hash encoding~\cite{muller2022instant}. These advances have demonstrated INRs' capability of solving physics-based inverse problems, especially when limited information is provided, and hence are suitable for improving data efficiency. 
+
+\subsubsection{Network Architecture and Coordinate Parameterization}
+\label{subsec:mlp}
+As visualized in Fig.~\ref{fig:MLP}, we employ a coordinate-based MLP to map normalized spatial ($x$), temporal ($t_1, t_2$), or frequency ($\omega_1, \omega_3$) coordinates to their corresponding 4D spectroscopic intensities. The network is designed to accurately model both rapidly oscillating and slowly varying signal components. Specifically, the MLP consists of four hidden layers, each comprising 64 neurons and utilizing a Rectified Linear Unit (ReLU)~\cite{agarap2018deep} for nonlinear activation, followed by a final linear output layer.
+
+\noindent \textbf{Slow Varying Intensities.}
+Given that temporal variations along the $t_2$ axis are inherently smooth, we directly use the MLP to model the relation between subsampled 4D coordinates and associated intensity values. At the inference stage, the MLP takes densely sampled 4D coordinates as input and predict intensities at both sampled and unsampled coordinates.
+
+\noindent \textbf{Fast Varying Intensities.}
+We note that it is challenging for standard MLP to model signals exhibiting rapid oscillations, which is natural for temporal signals along the $t_1$ axis, and the difficulty exacerbates under sparse sampling conditions. Hence, we adopt a physics-informed trategy. Rather than directly fitting the MLP to rapidly oscillating temporal signals, we let the MLP output the frequency-domain spectrum $S(\omega)$, and then apply an IRFT to the network output and recover the corresponding time-domain signal estimates. The loss is computed in the time domain by comparing these estimates with sparse measurements. This strategy leverages the the inherent low-frequency bias of MLP as a regularizer. By learning the smoother spectral function, the model effectively preserves oscillatory information while being robust to noise and artifacts resulting from sparse acquisition.
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=0.6\textwidth]{Figs/projection_v7.pdf}
+     \caption{\textbf{2D representation of 4DIR data.} 
+     A bounding box is defined around the dominant peak in each $(\omega_1,\omega_3)$ slice. The intensities enclosed within this region are averaged to reduce the four-dimensional data to a two-dimensional representation along the $(x,t_2)$ axes, which is subsequently used for evaluation.}
+     \vspace{-4mm}
+     \label{fig:projection}
+\end{figure}
+
+\subsubsection{Loss Function}
+\label{subsec:loss_func}
+
+In model training, we tailor the objective functions to different reconstruction tasks. In fast varying intensity recovery, we use the Mean Squared Error (MSE) between the measured and reconstructed signals to drive the optimization. In slow varying intensity recovery, the objective function evaluates intensity fidelity, Statistical-Moment-Matching Constraints with regularization.
+
+\paragraph{Intensity Reconstruction.}
+We compute the MSE between the predicted spectrum $f_{\theta}$ and the ground truth data $S$ across all sampled coordinates $\mathcal{S}$ to evaluate their similarities:
+\begin{equation}
+    \mathcal{L}_{\mathrm{MSE}} = \frac{1}{|\mathcal{S}|} \sum_{(x, t_2, \omega_1, \omega_3) \in \mathcal{S}} \Big( f_{\theta}(x, t_2, \omega_1, \omega_3) - S(x, t_2, \omega_1, \omega_3) \Big)^2,
+\end{equation}
+where $|\mathcal{S}|$ denotes the total number of coordinates.
+
+
+\paragraph{Statistical-Moment-Matching Constraints.}
+To capture spatial dynamics accurately along with the spectral intensity, we apply constraints on the statistical moments ($\mu, \sigma$) of the spatial variable (x) as follows. As shown in Fig.~\ref{fig:projection}, we first reduce the 4D spectra $S(x, t_2, \omega_1, \omega_3)$ to a 2D spatial-temporal profile $M(x, t_2)$ with the following three steps: a) identify the peak of intensities, b) isolate the half-maximum neighborhood around this peak in the $(\omega_1, \omega_3)$ frequency plane, and c) average the intensities within this region. After this dimension reduction, we normalize the spatial profile $M(\cdot, t_2)$ for each sampled population time $t_2$ to treat it as a probability distribution:
+\begin{equation}
+    p_M(i \mid t_2) = \frac{M(x_i, t_2)}{\sum_{j=1}^{N_x} M(x_j, t_2)}, \quad i=1, \dots, N_x,
+\end{equation}
+where $x_i$ represents the spatial coordinate at index $i$, and $N_x$ is the total number of spatial coordinates. This formulation allows us to analyze the spatial evolution via the mean position $\mu_M$ and standard deviation $\sigma_M$:
+\begin{equation}
+\label{eq:mean_std}
+    \mu_M(t_2) = \sum_{i=1}^{N_x} x_i \, p_M(i \mid t_2), 
+    \quad 
+    \sigma_M(t_2) = \sqrt{\sum_{i=1}^{N_x} x_i^2 \, p_M(i \mid t_2) - \mu_M(t_2)^2}.
+\end{equation}
+Thus, the moment-matching loss ensures that the predicted profile $\tilde{M}$ matches the spatial moments of the reference $M$:
+\begin{equation}
+    \mathcal{L}_{\mathrm{moment}} = \sum_{t_2 \in \mathcal{T}_2} \Big( 
+    |\mu_{\tilde{M}}(t_2) - \mu_M(t_2)|^2 
+    + |\sigma_{\tilde{M}}(t_2) - \sigma_M(t_2)|^2 
+    + \|\tilde{M}(\cdot, t_2) - M(\cdot, t_2)\|_2^2 
+    \Big).
+\end{equation}
+
+\paragraph{Regularization.}
+To pursue physically accurate dynamics, we apply regularization functions, which act as penalty terms to constrain the solution space by favoring models that adhere to prior structural assumptions \cite{willoughby1979solutions, aster2018parameter}, to the spatial variance to encourage smooth and monotonic changes. Let $\mathcal{T}_2$ represent the set of all sampled time points along the population time axis ($t_2$), containing a total of $K = |\mathcal{T}_2|$ sampled points. We index these sampled time points in strictly chronological order, denoting the $k$-th time point as $t_{2_k}$ and apply a hinge-type monotonicity constraint by:
+
+$$\label{eq:mono}
+\mathcal{L}_{\mathrm{mono}} = \frac{1}{K-1} \sum_{k=1}^{K-1} \max\big\{0, \, \delta - [\sigma_M(t_{2_{k+1}}) - \sigma_M(t_{2_{k}})] \big\},$$
+
+\noindent where $\delta \ge 0$ is a margin parameter. Second, to discourage numerical instability and enforce smooth temporal evolution, we penalize positive second-order finite differences:
+
+$$\mathcal{L}_{\mathrm{smooth}} = \frac{1}{K-2} \sum_{k=1}^{K-2} \max\big\{ \sigma_M(t_{2_{k+2}}) - 2\sigma_M(t_{2_{k+1}}) + \sigma_M(t_{2_k}) - \gamma, \, 0 \big\},$$
+
+\noindent where $\gamma \ge 0$ serves as a curvature threshold.
+
+\paragraph{Total Objective.}
+The final loss function is a weighted sum of all these components:
+\begin{equation}
+    \mathcal{L} = \lambda_{\mathrm{MSE}}\mathcal{L}_{\mathrm{MSE}} + \lambda_{\mathrm{moment}}\mathcal{L}_{\mathrm{moment}} + \lambda_{\mathrm{mono}}\mathcal{L}_{\mathrm{mono}} + \lambda_{\mathrm{smooth}}\mathcal{L}_{\mathrm{smooth}},
+\end{equation}
+
+where the coefficients $\lambda$ are empirical hyperparameters, balancing the contribution of each term during optimization.
+
+\subsection{Adaptive Sampling}
+\label{subsec:adaptive_method}
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=0.9\textwidth]{Figs/adaptive_v10.pdf}
+     \caption{\textbf{Our loss-driven adaptive sampling method.} Beginning with the initially sampled coordinates (blue dots), the MLP is trained to model the spectral dynamics and the loss is evaluated along the population time $t_2$. The interval exhibiting the highest average prediction error is identified, and its midpoint is selected as the next sampling location.}
+     \vspace{-2mm}
+     \label{fig:adaptive}
+\end{figure}
+
+We employ a loss-aware adaptive sampling strategy~\cite{martel2021acorn} to improve data efficiency along the population time ($t_2$) axis. This algorithmic flow, illustrated in Fig.~\ref{fig:adaptive}, begins by fitting the MLP $f_\theta(\cdot)$ to the initially sampled spectra and computing the reconstruction loss between the network's predictions and the experimental measurements. To quantify the uncertainty at specific time delays, this reconstruction loss is aggregated across the spatial and frequency dimensions, yielding an error metric $\mathcal{L}(t_{2,k})$ for each sampled point, where $t_{2,k}$ denotes the $k$-th sample in the chronologically ordered sequence established previously.
+
+Using this metric, we compute the average reconstruction error, $s_k$, for the interval between each pair of adjacent samples, $t_{2,k}$ and $t_{2,k+1}$:
+\begin{equation}
+    s_k = \frac{1}{2}\big(\mathcal{L}(t_{2,k}) + \mathcal{L}(t_{2,k+1})\big), \quad k=1,\ldots,K-1.
+\label{eq:score-mean}
+\end{equation}
+
+The averaged error $s_k$ serves as a heuristic for uncertainty within an interval. Large estimation errors at the boundaries suggest that the underlying dynamics of that interval have been poorly captured. To maximize the information gain of the next sample, we identify the interval with the highest error, $k^\star = \arg\max_k s_k$, and select its midpoint as the subsequent sampling target.
+
+
+\begin{equation}
+    \label{eq:midpoint}
+    t_2^\star = \frac{1}{2}\big(t_{2,k^\star} + t_{2,k^\star+1}\big),
+\end{equation}
+
+which is rounded to the nearest available delay. The MLP is subsequently refined using this newly acquired measurement, and alternations between sampling and refining repeats until the predefined sampling budget is exhausted. By iteratively bisecting the intervals bounded by the highest reconstruction errors, the algorithm progressively closes interpolation gaps. This yields a dynamic sampling distribution naturally optimized to capture the underlying physical dynamics.
+
+\subsection{Software Implementation Details}
+
+We drive the network optimization by the Adam algorithm \cite{kingma2014adam} with parameters $(\beta_1, \beta_2) = (0.9, 0.999)$. Data representation performance is evaluated with both qualitatively and quantitatively. For qualitative inspection, we visualize the $(\omega_3,\omega_1)$ and $(\omega_3, t_2)$ slices around the peak of 4D data. Quantitatively, we report the overall MSE and three population-time profiles: the peak-intensity, mean, and standard-deviation profiles. In particular, the peak intensity at each population time is computed by averaging the magnitudes within the bounding box.
+\section{Results and Discussion}
+\label{sec:rd}
+
+In this section, we first evaluate the networks trained with different numbers of repeated measurements and varying $t_2$ sampling densities. We also report its ability to capture rapid variations along the $t_1$ axis and show how the adaptive sampling strategy selects the informative points from unseen candidates. Using the MLP-based representation, we model the spectra with fewer repeated samples (Sec.~\ref{ssec:repeat}), subsampled $t_2$ indices (Sec.~\ref{ssec: subt2}), and $t_1$ indices (Sec.~\ref{ssec: subt1}). We then present the results from different sampling strategies in Sec.~\ref{ssec: adaptive}. 
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=0.9\textwidth]{Figs/results_repeated_v5.pdf}
+     \caption{\textbf{Summary of results under different numbers of repeated samplings.} 
+     (a) Measurements averaged over varying data aggregation counts ($r$) and reconstructed spectra under the same count.
+     (c) Using the least noisy case (highest $r$) as reference, we compute the MSE of other measurements and predictions against it.
+     (d–e) Mean and standard deviation profiles of reconstructions at different repeat counts, with the reference shown as a solid black line.
+      }
+     \vspace{-4mm}
+     \label{fig:repeat}
+\end{figure}
+
+\begin{table}[t]
+    \centering
+    \caption{\textbf{Quantitative evaluation under different data aggregation counts (r).}}
+    \label{tab:repeat}
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        \textbf{r} & \textbf{Intensity MSE} & \textbf{Mean profile MSE} & \textbf{Std profile MSE} \\ \hline
+        2 & $ 2.22\times 10^{-2} \pm 1.95\times 10^{-2} $ & $ 1.82\times 10^{-6} \pm 1.05\times 10^{-6} $ & $ 3.91\times 10^{-7} \pm 4.60\times 10^{-7} $ \\ \hline
+        5 & $ 1.17\times 10^{-2} \pm 5.42\times 10^{-3} $ & $ 7.59\times 10^{-7} \pm 2.16\times 10^{-7} $ & $ 1.31\times 10^{-7} \pm 8.65\times 10^{-8} $ \\ \hline
+        10 & $ 1.19\times 10^{-2} \pm 6.03\times 10^{-3} $ & $ 6.43\times 10^{-7} \pm 3.71\times 10^{-7} $ & $ 1.03\times 10^{-7} \pm 8.08\times 10^{-8} $ \\ \hline
+        20 & $ 6.79\times 10^{-3} \pm 2.58\times 10^{-3} $ & $ 4.65\times 10^{-7} \pm 2.18\times 10^{-7} $ & $ 5.18\times 10^{-8} \pm 3.31\times 10^{-8} $ \\ \hline
+    \end{tabular}
+    \vspace{-3mm}
+\end{table}
+
+\subsection{Prediction Stability}
+
+\subsubsection{Low-Accumulation Regimes}
+\label{ssec:repeat}
+
+We evaluate the noise-robustness of our framework by varying the signal-averaging counts ($N \in \{2, 5, 10, 20\}$) of input spectra synthesis to simulate different noise levels. The spectra with different noise levels serve as the reference measurement to train the MLP.
+
+As illustrated in Fig.~\ref{fig:repeat}(A), reducing the signal-averaging count increases the noise level and distorts weaker peaks in the synthesized spectra. In contrast, the MLP is robust to noise and predicts spectra retaining structural integrity, effectively suppressing elevated noise. In Fig.~\ref{fig:repeat}(B), we assess reconstruction performance against the measurement averaged across all available acquisitions, representing the lowest achievable noise level. As we can see, the raw measurements deviate significantly from the reference as the data aggregation count decreases,  whilethe model predictions remain consistent across different noise levels.
+
+As observed in Table~\ref{tab:repeat} and Fig.~\ref{fig:repeat}(C)–(E), the shape of all three profiles remain stable under different data aggregation counts, with moderate mismatch in lower counts. These findings demonstrate that our model is noise-robustness, which alleviates the need for extensive data aggregation counts and improves data acquisition efficiency. Notably, the choice of acceptable $r$ is analysis dependent. In terms of intensity recovery, we can reduce the value to $r=5$ with consistent recovery. Nonetheless, if one pursues accurate mean and standard deviation of th spatial profile, a higher number $r=10$ is required.
+
+
+\subsubsection{Undersampled Population Temporal Data}
+\label{ssec: subt2}
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=\textwidth]{Figs/results_t2_v5.pdf}
+     \caption{\textbf{Summary of results under different sampling rates along the population time.}(a) Reference and reconstructed spectra obtained at various sampling rates along the population time axis.
+     (b–d) Peak intensity, mean and standard deviation profiles of reconstructions at different sampling intervals, with the reference shown as a solid black line.}
+     \vspace{-4mm}
+     \label{fig:t2_results}
+\end{figure}
+
+\begin{table}[t]
+    \centering
+    \caption{\textbf{Quantitative evaluation under different sampling intervals (SIs) along the population time.}}
+    \label{tab:t2_results}
+    \begin{tabular}{cccc}
+        \hline
+        \textbf{SI} & \textbf{Intensity MSE} & \textbf{Mean profile MSE} & \textbf{Std profile MSE} \\ \hline
+        1 & $ 5.54\times 10^{-3} \pm 3.41\times 10^{-3} $ & $ 6.84\times 10^{-7} \pm 4.79\times 10^{-7} $ & $ 2.09\times 10^{-7} \pm 3.15\times 10^{-7} $ \\ 
+        2 & $ 6.45\times 10^{-3} \pm 4.84\times 10^{-3} $ & $ 8.72\times 10^{-7} \pm 7.07\times 10^{-7} $ & $ 2.67\times 10^{-7} \pm 4.02\times 10^{-7} $ \\ 
+        4 & $ 1.15\times 10^{-2} \pm 1.07\times 10^{-2} $ & $ 1.36\times 10^{-6} \pm 7.67\times 10^{-7} $ & $ 3.14\times 10^{-7} \pm 4.20\times 10^{-7} $ \\ 
+        8 & $ 2.19\times 10^{-2} \pm 2.57\times 10^{-2} $ & $ 3.23\times 10^{-6} \pm 1.51\times 10^{-6} $ & $ 3.69\times 10^{-7} \pm 3.94\times 10^{-7} $ \\ 
+        16 & $ 2.75\times 10^{-1} \pm 4.30\times 10^{-1} $ & $ 5.08\times 10^{-6} \pm 3.43\times 10^{-6} $ & $ 7.81\times 10^{-7} \pm 8.81\times 10^{-7} $ \\ \hline
+    \end{tabular}
+    \vspace{-3mm}
+\end{table}
+
+We simulated 2DIR data under varying $t_2$ sampling intervals (SIs) via uniform undersampling. With a baseline rate of 0.2 ps/step, SIs ranging from 2 to 16 were evaluated to optimize the MLP. Results across these sampling densities are presented in Fig.~\ref{fig:t2_results} and Table~\ref{tab:t2_results}. As shown in Fig.~\ref{fig:t2_results}(a), the reconstructed spectra faithfully reproduce the spectral structures in unsampled $t_2$ regions regardless of different sampling rates. As observed in Fig.\ref{fig:t2_results}(b)-(d) and Table~\ref{tab:t2_results}, the most significant mismatch occurs when the sampling interval is 16, where the sparse sampling rate makes capturing the temporal dynamics extremely difficult. We observe the same behavior in the mean and standard deviation of the spatial profile, which closely match the reference until the sampling interval reaches 16. These results demonstrate the generalization capability of the MLP in unobserved temporal regions, enabling lower sampling rates without compromising reconstruction fidelity. As discussed in Sec.~\ref{ssec:repeat}, the choice of acceptable sampling interval is evaluation dependent.
+
+
+% Similar to the procedure described in Sec.~\ref{ssec:repeat}, we optimize the MLP on different subsampling rates along $t_2$, and summarize the results in Fig.~\ref{fig:t2_results} and Table~\ref{tab:t2_results}. As shown in Fig.~\ref{fig:t2_results}(a), the reconstructed spectra faithfully reproduce the spectral structures in unsampled $t_2$ regions regardless of different sampling rates. As observed in Fig.\ref{fig:t2_results}(b)-(d) and Table~\ref{tab:t2_results}, the most significant mismatch occurs when the sampling interval is 16, where the sparse sampling rate makes capturing the temporal dynamics extremely difficult. We observe the same behavior in the mean and standard deviation profiles, which closely match the reference until the sampling interval reaches 16. These results demonstrate the generalization capability of the MLP in unobserved temporal regions, enabling lower sampling rates without compromising reconstruction fidelity. As discussed in Sec. \ref{ssec: repeat}, the choice of acceptable sampling interval is evaluation dependent.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/results_t1_v10.pdf} 
+    \caption{\textbf{Reconstruction results from subsampled $t_1$ domain data.} 
+    (a) The 2DIR spectrum generated from the reconstructed data compared against the ground truth. (b) Temporal raw measurements showing the ground truth (fully sampled) and the subsampled input used for reconstruction. (c) A 1D intensity profile extracted from the temporal data in (b) to demonstrate signal recovery accuracy. In (c), the continuous curves between ground truth points are generated via sinc interpolation to visualize the underlying oscillation.}
+    \label{fig:t1_results}
+    \vspace{-3mm}
+\end{figure}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/results_t1_cmp_v4.pdf}
+    \caption{\textbf{Reconstruction results from subsampled $t_1$ domain data using different algorithms.} 
+    (a) The 2DIR spectrum and (b) temporal  measurements generated from different reconstruction algorithms compared against the ground truth.}
+    \label{fig:t1_cmp}
+    \vspace{-3mm}
+\end{figure}
+
+
+\begin{table}[t]
+\centering
+\caption{Reconstruction performance on undersampled $t_1$ data across different algorithms.}
+\label{tab:drop50_avg_ang2_to_ang02}
+\begin{tabular}{lrr}
+\toprule
+Algorithm & Spectrum MSE & Unsampled Temporal MSE\\
+\midrule
+RFFT & \textbf{1.333e-02} & \textbf{1.583e-04} \\
+GIRAF-2D \cite{bhattacharya2017accelerating} & 8.607e-02 & 3.443e-03 \\
+Fourier-features~\cite{tancik2020fourier} & 1.615e-01 & 6.190e-03 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/cmp_t1_drop.pdf}
+    \caption{\textbf{Reconstruction performance at different $t_1$ sampling rates.} 
+    We display the reconstructed 2DIR spectrum under different sampling rates and associated temporal data. SR: sampling rate.}
+    \label{fig:drop_t1}
+    \vspace{-3mm}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/recon_r_t1_t2_v4.pdf}
+    \caption{\textbf{Reconstruction 2DIR Spectrum under low accumulation and sampling rates.} 
+    We display an unsampled $t_2$ slice of 2DIR spectrum, Fourier transformed from subsampled $t_1$ measurement with $r=5$.}
+    \label{fig:drop_t1t2}
+    \vspace{-3mm}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{RFFT reconstruction error under different $t_1$ sampling rates.}
+\label{tab:rfft_drop_mse_seed7}
+\begin{tabular}{rcc}
+\toprule
+$t_1$ Sampling Rate & Spectrum MSE & Unsampled Temporal MSE \\
+\midrule
+80\% & 1.333e-02 & 1.583e-04 \\
+60\% & 1.663e-02 & 1.824e-04 \\
+40\% & 3.369e-02 & 3.825e-04 \\
+20\% & 2.503e-01 & 2.429e-03 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsubsection{Undersampled Coherent Temporal Data}
+\label{ssec: subt1}
+
+When undersampling the $t_1$ domain, we impose a sampling restriction that necessitates the inclusion of the first five and the final $t_1$ indices. The remaining indices in the undersampled set are then selected via random sampling from the intervening positions. Fig. \ref{fig:t1_results} evaluates signal reconstruction performance under a reduced $t_1$ sampling regime, illustrating (a) the 2DIR spectrum and (b) temporal measurements for the fully sampled ground truth, a 60\% sampling rate, and our proposed reconstruction. While lower sampling rates degrade spectral intensity due to truncated oscillations, our algorithm effectively recovers both the oscillation dynamics and the underlying spectral structures. This fidelity is further evidenced in Fig. \ref{fig:t1_results}(c), where the reconstructed continuous function closely aligns with the ground truth, accurately estimating values at unsampled points. To ensure a rigorous comparison, sinc interpolation was employed to recover the hidden continuous representation of the ground truth samples.
+
+In Fig.~\ref{fig:t1_cmp}, we benchmark our proposed framework against two baseline approaches: (a) Fourier-feature encoding (FFE)~\cite{tancik2020fourier}, an MLP-based technique that takes raw coordinates and their high-frequency sinusoidal mappings as inputs to resolve rapid signal variations, and (b) GIRAF~\cite{bhattacharya2017accelerating}, an existing compressed sensing technique with a low-rank constraint developed for 2DIR. Although both baseline methods manage to recover the observed training points, they yields erroneous interpolation and hence fail to generalize to unobserved regions. Specifically, the FFE exhibits pronounced interpolation artifacts due to a lack of physical constraints. On the other hand, because GIRAF infers unobserved values through a local patch low-rank prior, the oscillatory structures are easily oversmoothed under high missing rates. Furthermore, while GIRAF can recover 2DIR data from low $t_1$ sampling rates, it is unable to address undersampling in other dimensions, such as $t_2$. In contrast, our proposed RFFT-based model is capable of recovering 2DIR data when multiple dimensions ($t_1,t_2$) are undersampled. It accurately reconstructs dominant vibrational peaks while effectively suppressing aliasing artifacts induced by sparse sampling. Quantitatively, as summarized in Table~\ref{tab:drop50_avg_ang2_to_ang02}, this approach achieves the highest recovery accuracy, yielding lower errors in both unsampled regions and frequency-domain metrics.
+
+We also investigated the impact of varying the subsampling rates along the $t_1$ axis, with the results summarized in Table \ref{tab:rfft_drop_mse_seed7} and Figure \ref{fig:drop_t1}. As observed, peak distortion becomes significant when 151 out of 251 samples are removed. In contrast to the slowly varying temporal data along the $t_2$ axis, our algorithm demonstrates a lower tolerance for sampling reduction in $t_1$. This discrepancy arises because the original sampling rate in $t_1$ is closer to the Nyquist limit; consequently, the loss of samples becomes critical for accurately recovering the high-frequency oscillating and decaying components of the temporal signal. Conversely, the recovery of slowly varying signals is inherently less sensitive to high subsampling rates, as the underlying dynamics are captured by fewer data points.
+
+\subsubsection{Jointly Low Accumulation and Undersampled}
+
+We evaluate the joint effects of a low signal-averaging count and undersampling across both the $t_1$ and $t_2$ dimensions on 2DIR signal recovery. Figure~\ref{fig:drop_t1t2} presents the reconstruction results using a $t_2$ sampling interval of 4, a $t_1$ sampling rate of 60\%, and a signal-averaging count of $r=5$. As observed in the omitted $t_2$ slices within the $(\omega_1, \omega_3)$ domain, our method successfully reconstructs a smooth yet structurally accurate 2DIR spectrum despite the elevated noise and sparse $t_1$ sampling. Furthermore, the underlying $t_2$ dynamics are faithfully recovered even in this highly constrained regime. These results validate the robustness of our INR model against simultaneous noise and data sparsity in the measurement.
+
+
+% As shown in Fig.~\ref{fig:t1_results}(a)–(b), although both methods can model rapid variations on sampled points, when coordinates with local peak intensities are not taken, the encoding method struggles to recover signal intensities, whereas our IRFT-based MLP maintains robust reconstruction. Moreover, as shown in Fig.\ref{fig:t1_results}(c), the spectral comparison demonstrates that the proposed model achieves better noise suppression while preserving oscillatory patterns. By downplaying frequency components outside the principal peak, our approach greatly improves the quality of time-domain signals. Fig.\ref{fig:t1_results}(d) illustrates two-dimensional visualizations, demonstrating that noise artifacts are effectively removed, and the oscillatory structures are accurately preserved.
+
+\begin{table}[t]
+    \centering
+    \caption{\textbf{Quantitative comparison of different adaptive sampling strategies.}}
+    \label{tab:active}
+    \begin{tabular}{|c|c|c|c|}
+        \hline
+        \textbf{Method} & \textbf{Intensity MSE} & \textbf{Mean profile MSE} & \textbf{Std profile MSE} \\ \hline
+        Ours & $ 6.19\times 10^{-2} \pm 2.50\times 10^{-2} $ & $ 2.71\times 10^{-6} \pm 1.85\times 10^{-6} $ & $ 2.32\times 10^{-7} \pm 2.94\times 10^{-7} $ \\ \hline
+        Random & $ 7.01\times 10^{-2} \pm 6.48\times 10^{-2} $ & $ 4.95\times 10^{-6} \pm 3.59\times 10^{-6} $ & $ 4.87\times 10^{-7} \pm 4.01\times 10^{-7} $ \\ \hline
+        Uniform & $ 3.43\times 10^{-1} \pm 5.26\times 10^{-1} $ & $ 4.87\times 10^{-6} \pm 4.39\times 10^{-6} $ & $ 3.59\times 10^{-7} \pm 3.24\times 10^{-7} $ \\ \hline
+    \end{tabular}
+    \vspace{-3mm}
+\end{table}
+
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{Figs/ablation_v2.pdf}
+\caption{\textbf{Effect of statistical moment-matching.} 
+Spectral recovery results obtained with (orange) and without (blue) 
+moment-matching constraints for (a) the mean and (b) the standard deviation 
+profiles.}
+    \label{fig:ablation}
+    \vspace{-3mm}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figs/sampling_cmp_v3.pdf}
+    \caption{\textbf{Comparison of 2DIR Spectrum Reconstruction Under Differing Sampling Constraints.} 
+    The box plot illustrates the median, the first and third quartile, and outliers of the reconstruction MSE obtained with and without sampling restrictions. Examples of the reconstructed spectra for each policy are displayed alongside the statistical data to highlight the impact of sampling limitations on spectral fidelity.}
+    \label{fig:sampling}
+    \vspace{-3mm}
+\end{figure}
+
+
+\subsection{Ablation Tests}
+
+
+\subsubsection{Statistic-Moment Constraint}
+
+To validate the impact of the statistic-moment constraint detailed in Sec.~\ref{subsec:loss_func}, we performed an ablation study by excluding the statistical and physical constraints from the optimization objective. As illustrated in Fig.~\ref{fig:ablation}, relying solely on $\mathcal{L}_{\mathrm{MSE}}$ results in significant deviations in the recovered spatial evolution profiles ($\mu_M$ and $\sigma_M$), even when the spectral intensities appear visually consistent with the ground truth. This discrepancy arises because $\mu_M$ and $\sigma_M$ are derived moments (Eq.~\ref{eq:mean_std}); unlike pixel-wise intensity, they are global descriptors highly sensitive to the probability distribution shape, where minor spectral artifacts can be non-linearly amplified. Furthermore, the standard MSE loss is agnostic to the underlying physical diffusion process. Without $\mathcal{L}_{\mathrm{mono}}$ and $\mathcal{L}_{\mathrm{smooth}}$ to explicitly enforce monotonic expansion and restrict positive curvature in the standard deviation, the optimization converges to a solution that fits the intensity data but violates the physical laws governing the signal's temporal evolution.
+
+\subsubsection{Sampling Restrictions}In Fig.~\ref{fig:sampling}, we compare 2DIR spectrum reconstruction results using two distinct sampling strategies with identical sample counts: one following the sampling restriction (retaining the first five $t_1$ samples) and one violating it (omitting three of those initial samples), where the examples of corresponding sampling patterns are visualized in Fig.~\ref{fig:sampling}(c) and (d), respectively. To ensure robustness, we deploy each strategy 10 times and calculated the resulting statistics. As illustrated in Fig.~\ref{fig:sampling}(a) and (e), reconstructions following the sampling restriction consistently outperform those that violate the restriction. The results are further validated by the visual comparisons in Fig.~\ref{fig:sampling}(g) and (h).
+
+This performance gap arises from the interplay between the rapidly decaying nature of the temporal signal and the inductive biases of the INR. In the time domain of 2DIR spectroscopy, the earliest samples capture the highest signal amplitude and establish the absolute phase of the underlying oscillations \cite{zanni2020hyperspectral, doi:10.1021/bk-2021-1398.ch006}. Drawing a parallel to nuclear magnetic resonance spectroscopy, omitting these initial high-amplitude samples severely underconstrains the signal, fundamentally introducing phase ambiguity into the spectral reconstruction \cite{ravera2021phase}. Algorithmically, INRs inherit the characteristic spectral bias of standard neural networks, prioritizing the learning of dominant, low-frequency structures such as the overall signal envelope \cite{rahaman2019spectral}. Because this initial decay defines the macroscopic signal envelope, the INR relies on these high-energy samples as its primary structural anchors; without them, the reconstruction problem becomes underspecified \cite{yuce2022structured}. When these boundary anchors are captured (Fig.~\ref{fig:sampling}(i)), the INR is sufficiently constrained to reliably establish the global phase. Conversely, without the precise alignment of these initial oscillations, the network must extrapolate the highest-amplitude onset. While Fourier-feature MLPs excel at interpolation \cite{tancik2020fourier}, they struggle to extrapolate; their harmonic basis functions often diverge unpredictably outside the training domain \cite{fesser2023understanding}. Furthermore, because the time and frequency domains are globally coupled, compensatory errors at this extrapolated boundary inevitably corrupt the entire sequence, manifesting as widespread spectral leakage and phase misalignment \cite{gottlieb1997gibbs}. Consequently, as shown in Fig.~\ref{fig:sampling}(j), the network overfits the low-amplitude tail while hallucinating unphysical variations at the poorly constrained boundary.
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=\textwidth]{Figs/adaptive_results_v3.pdf}
+     \caption{\textbf{Reconstruction results from different sampling strategies.} 
+     We overlay (a) peak-intensity, (b) mean, and (c) standard-deviation profiles derived from spectra reconstructed using different sampling strategies.}
+     \label{fig:adaptive_result}
+     \vspace{-3mm}
+\end{figure}
+
+\subsection{Adaptive Sampling Results}
+\label{ssec: adaptive}
+
+We compare multiple sampling strategies under a consistent experimental setup. Specifically, we first include the interval endpoints and then apply three strategies: the proposed loss-driven sampling, uniform sampling, and random sampling \cite{humston2017compressively, bhattacharya2017accelerating, humston2019optimized}. As summarized in Fig.~\ref{fig:adaptive_result}, the proposed loss-aware sampling achieves the best alignment across all evaluation metrics, whereas the other two approaches fail to capture the underlying trends. Notably, all strategies utilize only 1/16 of the maximum sampling budget. As the sampling density increases beyond this regime, the performance gap between methods diminishes due to the generalization capability of the proposed neural representation framework. 
+
+\subsection{Limitations and Possible Extensions}
+
+The proposed method currently encounters scalability limitations when applied to extended 4DIR data acquisition ranges. Specifically, the efficacy of our normalization scheme diminishes when spectral lobes occupy only a minor fraction of the $(\omega_1, \omega_3)$ plane, as the spectral energy becomes compressed within a narrow interval of the normalized $[0,1]$ range. Potential solutions to this sparsity issue include adaptive coordinate networks, multi-resolution encodings~\cite{martel2021acorn, yu2021plenoctrees}, or importance-weighted training strategies that prioritize high-energy regions~\cite{raissi2019physics}. A further limitation involves extrapolation performance; although coordinate-based representations are well-suited for interpolation, they easily fail to generalize to unsampled spectral coordinates, a common vulnerability in standard MLP architectures~\cite{chen2021learning, wei2024nermo}. Furthermore, the practical deployment of adaptive sampling introduces latency due to the frequent alternation between optimization and data acquisition, extending the total elapsed time beyond theoretical estimates. We leave the optimization of this workflow as a direction for future research. Finally, while this study decouples oscillatory and non-oscillatory temporal variations, these dynamics may co-exist along the same dimension in complex systems; capturing such heterogeneous variations may necessitate further architectural refinements to the neural representation. 
+
+
+In addition to these methodological refinements, extending our model to other CMDS modalities offers significant potential for broader application. For instance, transient absorption microscopy~\cite{zhu2020transient, gross2023progress}, which also exhibits oscillatory and non-oscillatory population dynamics, could significantly benefit from this approach. Applying our INR-based framework to these slowly varying signals could decrease the number of samples, accelerating imaging while preserving the underlying dynamics.
+%\input{Sections/4_Experiments}
+\section{Conclusion}
+
+The time-consuming issue has been concerning in collecting high-quality 2DIR and other hypercube data. To overcome this issue, we propose a physics-informed model that incorporates MLP-based spectral representation and a loss-aware adaptive sampling strategy. Experimental results show that the proposed model achieves high fidelity recovery using few data aggregation counts and sparse sampling along population-time. The probabilistic analysis demonstrates that the spectral dynamics are accurately preserved. In addition, by incorporating an IRFT-based optimization, our model manages to reconstruct rapid oscillations even with sparsely sampled signals along the coherence time axis. The incorporation of loss-driven active sampling further improves data efficiency. These advances highlight a path toward efficient, physics-aware acquisition of 2DIR, transient absorption microscopy and any hypercube data.
+
+\section{Acknowledgement}
+
+We acknowledge Mason Valentine for inspirations and technical supports in this work.
+% \input{Sections/backup}
+
+
+
+%%%%%%%%%% Inlined bibliography for single-file submission:
+\begin{thebibliography}{10}
+\newcommand{\enquote}[1]{``#1''}
+
+\bibitem{goetz1985imaging}
+A.~F. Goetz, G.~Vane, J.~E. Solomon, and B.~N. Rock, \enquote{Imaging spectrometry for earth remote sensing,} {\protect\JournalTitle{Science}} \textbf{228}, 1147--1153 (1985).
+
+\bibitem{chang2003hyperspectral}
+C.-I. Chang, \enquote{Hyperspectral imaging: techniques for spectral detection and classification,} {\protect\JournalTitle{Kluwer Academic/Plenum Publishers}}  (2003).
+
+\bibitem{zanni2020hyperspectral}
+M.~T. Zanni, \enquote{Hyperspectral 2d ir imaging: Principles and applications to biological and materials systems,} in \emph{2020 45th International Conference on Infrared, Millimeter, and Terahertz Waves (IRMMW-THz),}  (IEEE, 2020), pp. 1--2.
+
+\bibitem{doi:10.1021/bk-2021-1398.ch006}
+C.~A. Tibbetts, A.~B. Wyatt, B.~M. Luther, and A.~T. Krummel, \emph{Practical Aspects of 2D IR Microscopy}, chap.~6, pp. 109--134.
+
+\bibitem{Baiz:14}
+C.~R. Baiz, D.~Schach, and A.~Tokmakoff, \enquote{Ultrafast 2d ir microscopy,} {\protect\JournalTitle{Opt. Express}} \textbf{22}, 18724--18735 (2014).
+
+\bibitem{ostrander2016spatially}
+J.~S. Ostrander, A.~L. Serrano, A.~Ghosh, and M.~T. Zanni, \enquote{Spatially resolved two-dimensional infrared spectroscopy via wide-field microscopy,} {\protect\JournalTitle{ACS Photonics}} \textbf{3}, 1315--1323 (2016).
+
+\bibitem{baiz2011ultrafast}
+C.~R. Baiz and A.~T. Krummel, \enquote{Ultrafast chemical imaging with 2d ir microscopy,} {\protect\JournalTitle{Optics Express}} \textbf{19}, 16393--16400 (2011). Note: Check specific authorship for microscopy in your specific context, often attributed to Krummel or Zanni groups.
+
+\bibitem{hagen2013review}
+N.~Hagen and M.~W. Kudenov, \enquote{Review of snapshot spectral imaging technologies,} {\protect\JournalTitle{Optical Engineering}} \textbf{52}, 090901--090901 (2013).
+
+\bibitem{gehm2007single}
+M.~E. Gehm, R.~John, D.~J. Brady, \emph{et~al.}, \enquote{Single-shot compressive spectral imaging with a dual-disperser architecture,} {\protect\JournalTitle{Optics express}} \textbf{15}, 14013--14027 (2007).
+
+\bibitem{helbing2010compact}
+J.~Helbing and P.~Hamm, \enquote{Compact implementation of fourier transform two-dimensional ir spectroscopy without phase ambiguity,} {\protect\JournalTitle{Journal of the Optical Society of America B}} \textbf{28}, 171--178 (2010).
+
+\bibitem{bhattacharya2017accelerating}
+I.~Bhattacharya, J.~J. Humston, C.~M. Cheatum, and M.~Jacob, \enquote{Accelerating two-dimensional infrared spectroscopy while preserving lineshapes using giraf,} {\protect\JournalTitle{Optics letters}} \textbf{42}, 4573--4576 (2017).
+
+\bibitem{sanders2012compressed}
+J.~N. Sanders, S.~K. Saikin, S.~Mostame, \emph{et~al.}, \enquote{Compressed sensing for multidimensional spectroscopy experiments,} {\protect\JournalTitle{The journal of physical chemistry letters}} \textbf{3}, 2697--2702 (2012).
+
+\bibitem{dunbar2013accelerated}
+J.~A. Dunbar, D.~G. Osborne, J.~M. Anna, and K.~J. Kubarych, \enquote{Accelerated 2d-ir using compressed sensing,} {\protect\JournalTitle{The Journal of Physical Chemistry Letters}} \textbf{4}, 2489--2492 (2013).
+
+\bibitem{humston2017compressively}
+J.~J. Humston, I.~Bhattacharya, M.~Jacob, and C.~M. Cheatum, \enquote{Compressively sampled two-dimensional infrared spectroscopy that preserves line shape information,} {\protect\JournalTitle{The Journal of Physical Chemistry A}} \textbf{121}, 3088--3093 (2017).
+
+\bibitem{xu2023cutting}
+C.~Xu and C.~R. Baiz, \enquote{Cutting through the noise: Extracting dynamics from ultrafast spectra using dynamic mode decomposition,} {\protect\JournalTitle{The Journal of Physical Chemistry A}} \textbf{127}, 9853--9862 (2023).
+
+\bibitem{al2022generative}
+Z.~A. Al-Mualem and C.~R. Baiz, \enquote{Generative adversarial neural networks for denoising coherent multidimensional spectra,} {\protect\JournalTitle{The Journal of Physical Chemistry A}} \textbf{126}, 3816--3825 (2022).
+
+\bibitem{chen2019learning}
+Z.~Chen and H.~Zhang, \enquote{Learning implicit fields for generative shape modeling,} in \emph{Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,}  (2019), pp. 5939--5948.
+
+\bibitem{park2019deepsdf}
+J.~J. Park, P.~Florence, J.~Straub, \emph{et~al.}, \enquote{Deepsdf: Learning continuous signed distance functions for shape representation,} in \emph{Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,}  (2019), pp. 165--174.
+
+\bibitem{raissi2019physics}
+M.~Raissi, P.~Perdikaris, and G.~E. Karniadakis, \enquote{Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations,} {\protect\JournalTitle{Journal of Computational physics}} \textbf{378}, 686--707 (2019).
+
+\bibitem{hao2022physics}
+Z.~Hao, S.~Liu, Y.~Zhang, \emph{et~al.}, \enquote{Physics-informed machine learning: A survey on problems, methods and applications,} {\protect\JournalTitle{arXiv preprint arXiv:2211.08064}}  (2022).
+
+\bibitem{ho2025differentiable}
+C.-J. Ho, Y.~Belhe, S.~Rotenberg, \emph{et~al.}, \enquote{A differentiable wave optics model for end-to-end computational imaging system optimization,} in \emph{Proceedings of the IEEE/CVF International Conference on Computer Vision,}  (2025), pp. 28042--28051.
+
+\bibitem{martel2021acorn}
+J.~N. Martel, D.~B. Lindell, C.~Z. Lin, \emph{et~al.}, \enquote{Acorn: Adaptive coordinate networks for neural representation,} {\protect\JournalTitle{ACM Trans. Graph. (SIGGRAPH)}}  (2021).
+
+\bibitem{hamm1998structure}
+P.~Hamm, M.~Lim, and R.~M. Hochstrasser, \enquote{Structure of the amide i band of peptides measured by femtosecond nonlinear-infrared spectroscopy,} {\protect\JournalTitle{The Journal of Physical Chemistry B}} \textbf{102}, 6123--6138 (1998).
+
+\bibitem{mukamel1995principles}
+S.~Mukamel, \enquote{Principles of nonlinear optical spectroscopy,} {\protect\JournalTitle{( Oxford University Press)}}  (1995).
+
+\bibitem{yang2023enabling}
+Z.~Yang, H.~H. Bhakta, and W.~Xiong, \enquote{Enabling multiple intercavity polariton coherences by adding quantum confinement to cavity molecular polaritons,} {\protect\JournalTitle{Proceedings of the National Academy of Sciences}} \textbf{120}, e2206062120 (2023).
+
+\bibitem{dicke2021application}
+S.~S. Dicke, A.~M. Alperstein, K.~L. Schueler, \emph{et~al.}, \enquote{Application of 2d ir bioimaging: Hyperspectral images of formalin-fixed pancreatic tissues and observation of slow protein degradation,} {\protect\JournalTitle{The Journal of Physical Chemistry B}} \textbf{125}, 9517--9525 (2021).
+
+\bibitem{tiwari2018spatially}
+V.~Tiwari, Y.~A. Matutes, A.~T. Gardiner, \emph{et~al.}, \enquote{Spatially-resolved fluorescence-detected two-dimensional electronic spectroscopy probes varying excitonic structure in photosynthetic bacteria,} {\protect\JournalTitle{Nature Communications}} \textbf{9}, 4219 (2018).
+
+\bibitem{zhu2020transient}
+Y.~Zhu and J.-X. Cheng, \enquote{Transient absorption microscopy: Technological innovations and applications in materials science and life science,} {\protect\JournalTitle{The Journal of Chemical Physics}} \textbf{152} (2020).
+
+\bibitem{gross2023progress}
+N.~Gross, C.~T. Kuhs, B.~Ostovar, \emph{et~al.}, \enquote{Progress and prospects in optical ultrafast microscopy in the visible spectral region: Transient absorption and two-dimensional microscopy,} {\protect\JournalTitle{The Journal of Physical Chemistry C}} \textbf{127}, 14557--14586 (2023).
+
+\bibitem{agarap2018deep}
+A.~F. Agarap, \enquote{Deep learning using rectified linear units (relu),} {\protect\JournalTitle{arXiv preprint arXiv:1803.08375}}  (2018).
+
+\bibitem{willoughby1979solutions}
+R.~A. Willoughby, \enquote{Solutions of ill-posed problems (an tikhonov and vy arsenin),} {\protect\JournalTitle{Siam Review}} \textbf{21}, 266 (1979).
+
+\bibitem{aster2018parameter}
+R.~C. Aster, B.~Borchers, and C.~H. Thurber, \emph{Parameter estimation and inverse problems} (Elsevier, 2018).
+
+\bibitem{kingma2014adam}
+D.~P. Kingma and J.~Ba, \enquote{Adam: A method for stochastic optimization,} {\protect\JournalTitle{arXiv preprint arXiv:1412.6980}}  (2014).
+
+\bibitem{tancik2020fourier}
+M.~Tancik, P.~Srinivasan, B.~Mildenhall, \emph{et~al.}, \enquote{Fourier features let networks learn high frequency functions in low dimensional domains,} {\protect\JournalTitle{Advances in neural information processing systems}} \textbf{33}, 7537--7547 (2020).
+
+\bibitem{ravera2021phase}
+E.~Ravera, \enquote{Phase distortion-free paramagnetic nmr spectra,} {\protect\JournalTitle{Journal of Magnetic Resonance Open}} \textbf{8}, 100022 (2021).
+
+\bibitem{rahaman2019spectral}
+N.~Rahaman, A.~Baratin, D.~Arpit, \emph{et~al.}, \enquote{On the spectral bias of neural networks,} in \emph{International conference on machine learning,}  (PMLR, 2019), pp. 5301--5310.
+
+\bibitem{yuce2022structured}
+G.~Y{\"u}ce, G.~Ortiz-Jim{\'e}nez, B.~Besbinar, and P.~Frossard, \enquote{A structured dictionary perspective on implicit neural representations,} in \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition,}  (2022), pp. 19228--19238.
+
+\bibitem{fesser2023understanding}
+L.~Fesser, L.~D'Amico-Wong, and R.~Qiu, \enquote{Understanding and mitigating extrapolation failures in physics-informed neural networks,} {\protect\JournalTitle{arXiv preprint arXiv:2306.09478}}  (2023).
+
+\bibitem{gottlieb1997gibbs}
+D.~Gottlieb and C.-W. Shu, \enquote{On the gibbs phenomenon and its resolution,} {\protect\JournalTitle{SIAM review}} \textbf{39}, 644--668 (1997).
+
+\bibitem{humston2019optimized}
+J.~J. Humston, I.~Bhattacharya, M.~Jacob, and C.~M. Cheatum, \enquote{Optimized reconstructions of compressively sampled two-dimensional infrared spectra,} {\protect\JournalTitle{The Journal of chemical physics}} \textbf{150} (2019).
+
+\bibitem{yu2021plenoctrees}
+A.~Yu, R.~Li, M.~Tancik, \emph{et~al.}, \enquote{Plenoctrees for real-time rendering of neural radiance fields,} in \emph{Proceedings of the IEEE/CVF international conference on computer vision,}  (2021), pp. 5752--5761.
+
+\bibitem{chen2021learning}
+Y.~Chen, S.~Liu, and X.~Wang, \enquote{Learning continuous image representation with local implicit image function,} in \emph{Proceedings of the IEEE/CVF conference on computer vision and pattern recognition,}  (2021), pp. 8628--8638.
+
+\bibitem{wei2024nermo}
+D.~Wei, H.~Sun, X.~Sun, and S.~Hu, \enquote{Nermo: Learning implicit neural representations for 3d human motion prediction,} in \emph{European Conference on Computer Vision,}  (Springer, 2024), pp. 409--427.
+
+\end{thebibliography}
+
+%%%%%%%%%% If preparing manually:
+% \begin{thebibliography}{1}
+% \newcommand{\enquote}[1]{``#1''}
+
+% \bibitem{Zhang:14}
+% Y.~Zhang, S.~Qiao, L.~Sun, Q.~W. Shi, W.~Huang, L.~Li, and Z.~Yang,
+%   \enquote{Photoinduced active terahertz metamaterials with nanostructured
+%   vanadium dioxide film deposited by sol-gel method,}
+%   {\protect\JournalTitle{Optics Express}} \textbf{22}, 11070--11078 (2014).
+
+% \bibitem{Optica}
+% {Optica}, \enquote{{Optica Publishing Group},}
+%   \url{http://www.opg.optica.org}.
+
+% \bibitem{FORSTER2007}
+% P.~Forster, V.~Ramaswamy, P.~Artaxo, T.~Bernsten, R.~Betts, D.~Fahey,
+%   J.~Haywood, J.~Lean, D.~Lowe, G.~Myhre, J.~Nganga, R.~Prinn, G.~Raga,
+%   M.~Schulz, and R.~V. Dorland, \enquote{Changes in atmospheric consituents and
+%   in radiative forcing,} in \enquote{Climate Change 2007: The Physical Science
+%   Basis. Contribution of Working Group 1 to the Fourth Assesment Report of
+%   Intergovernmental Panel on Climate Change,}  S.~Solomon, D.~Qin, M.~Manning,
+%   Z.~Chen, M.~Marquis, K.~B. Averyt, M.~Tignor, and H.~L. Miler, eds.
+%   (Cambridge University Press, 2007).
+
+% \end{thebibliography}
+
+\end{document}
