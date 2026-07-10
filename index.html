@@ -50,6 +50,30 @@
     color: #666;
   }
   .pub-list li { list-style-type: none; margin-left: 0; padding-left: 0; }
+  .publication-filter {
+    display: inline-flex;
+    gap: 0;
+    margin: 0.25em 0 1.4em;
+    border: 1px solid #c7d7e2;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .publication-filter button {
+    border: 0;
+    border-right: 1px solid #c7d7e2;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+    font: inherit;
+    padding: 0.35em 0.75em;
+  }
+  .publication-filter button:last-child {
+    border-right: 0;
+  }
+  .publication-filter button.active {
+    background: #007acc;
+    color: #fff;
+  }
   .highlighted-paper {
     background: #f6fbff;
     border-left: 4px solid #007acc;
@@ -104,7 +128,11 @@
   <a href="pdfs/Jerry_resume_1125.pdf" target="_blank">Download my CV (PDF)</a>
 </div>
 <h2>Publications</h2>
-<div class="pub-list"> 
+<div class="publication-filter" aria-label="Publication filter">
+  <button class="active" type="button" data-filter="all" aria-pressed="true">All papers</button>
+  <button type="button" data-filter="highlighted" aria-pressed="false">Highlighted</button>
+</div>
+<div class="pub-list" id="publication-list"> 
 
     <li>
     <div style="display:flex; margin-bottom:24px; align-items:flex-start;">
@@ -252,5 +280,25 @@
 <footer>
     Last updated: July 2025 • Template inspired by Jon Barron
   </footer>
+<script>
+  const publicationList = document.getElementById('publication-list');
+  const filterButtons = document.querySelectorAll('.publication-filter button');
+
+  filterButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const showHighlightedOnly = button.dataset.filter === 'highlighted';
+      const publicationItems = publicationList.querySelectorAll('li');
+
+      publicationItems.forEach((item) => {
+        item.hidden = showHighlightedOnly && !item.querySelector('.highlighted-paper');
+      });
+      filterButtons.forEach((item) => {
+        const isActive = item === button;
+        item.classList.toggle('active', isActive);
+        item.setAttribute('aria-pressed', String(isActive));
+      });
+    });
+  });
+</script>
 </body>
 </html>
