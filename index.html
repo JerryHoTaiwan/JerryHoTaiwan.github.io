@@ -4,7 +4,36 @@
 <meta charset="utf-8"/>
 <title>Chi-Jui (Jerry) Ho</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="description" content="Chi-Jui (Jerry) Ho is a Ph.D. candidate at UC San Diego researching computational imaging, differentiable optics, and physics-informed image processing."/>
+<link rel="canonical" href="https://jerryhotaiwan.github.io/"/>
+<link rel="icon" type="image/jpeg" href="imgs/jerry.jpg"/>
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="Chi-Jui (Jerry) Ho"/>
+<meta property="og:description" content="Research in computational imaging, differentiable optics, and physics-informed image processing."/>
+<meta property="og:url" content="https://jerryhotaiwan.github.io/"/>
+<meta property="og:image" content="https://jerryhotaiwan.github.io/imgs/jerry.jpg"/>
+<meta name="twitter:card" content="summary"/>
 <meta name="google-site-verification" content="zfA1DzGAWtpYWgjwq686KlSi9xvce8L3ObJnzD0OJwY" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Chi-Jui Ho",
+  "alternateName": "Jerry Ho",
+  "url": "https://jerryhotaiwan.github.io/",
+  "image": "https://jerryhotaiwan.github.io/imgs/jerry.jpg",
+  "jobTitle": "Ph.D. Candidate",
+  "affiliation": {
+    "@type": "CollegeOrUniversity",
+    "name": "University of California San Diego"
+  },
+  "sameAs": [
+    "https://www.linkedin.com/in/chi-jui-jerry-ho/",
+    "https://github.com/JerryHoTaiwan",
+    "https://scholar.google.com/citations?hl=en&user=HRKp738AAAAJ"
+  ]
+}
+</script>
 <style>
   body {
     max-width: 800px;
@@ -24,16 +53,23 @@
   a:hover {
     text-decoration: underline;
   }
+  a:focus-visible, button:focus-visible {
+    outline: 3px solid #ffbf47;
+    outline-offset: 3px;
+  }
   .header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 2em;
+    display: flex;
+    align-items: center;
+    margin-bottom: 2em;
   }
   
   .profile-img {
-  width: 150px;
-  border-radius: 8px;
-  margin-right: 20px;
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-right: 20px;
+    flex-shrink: 0;
   }
   .pub-title {
     font-weight: bold;
@@ -49,7 +85,36 @@
     font-size: 0.9em;
     color: #666;
   }
-  .pub-list li { list-style-type: none; margin-left: 0; padding-left: 0; }
+  .pub-list {
+    margin: 0;
+    padding: 0;
+  }
+  .pub-list li {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+  }
+  .publication-row {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+  .publication-image {
+    width: 150px;
+    height: auto;
+    margin-right: 16px;
+    flex-shrink: 0;
+  }
+  .publication-details {
+    flex-grow: 1;
+    min-width: 0;
+  }
+  .news-list {
+    padding-left: 1.25em;
+  }
+  .news-list time {
+    font-weight: bold;
+  }
   .publication-filter {
     display: inline-flex;
     gap: 0;
@@ -101,11 +166,43 @@
   .social-links a {
     margin-right: 1em;
   }
+  .publication-filter.highlighted-only + .pub-list .highlight-badge {
+    display: none;
+  }
+  @media (max-width: 600px) {
+    body {
+      padding: 1.25em;
+    }
+    .header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .profile-img {
+      width: 120px;
+      height: 120px;
+      margin: 0 0 1em;
+    }
+    h1 {
+      font-size: 1.75em;
+      line-height: 1.25;
+    }
+    .publication-row {
+      flex-direction: column;
+    }
+    .publication-image {
+      width: 100%;
+      max-width: 260px;
+      margin: 0 0 0.75em;
+    }
+    .highlighted-paper {
+      margin-left: 0;
+    }
+  }
 </style>
 </head>
 <body>
 <div class="header">
-  <img src="imgs/jerry.jpg" alt="Your Photo" class="profile-img"/>
+  <img src="imgs/jerry.jpg" alt="Portrait of Chi-Jui Jerry Ho" class="profile-img"/>
   <div>
     <h1>Chi-Jui (Jerry) Ho <span style="font-size:0.8em; color:#555;">何吉瑞</span></h1>
     <p><strong>Ph.D. Candidate</strong><br/>
@@ -113,11 +210,11 @@
     Email: chh009@ucsd.edu</p>
 
     <div class="social-links">
-      <a href="https://www.linkedin.com/in/chi-jui-jerry-ho/" target="_blank">LinkedIn</a>
+      <a href="https://www.linkedin.com/in/chi-jui-jerry-ho/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
       <span class="dot">•</span>
-      <a href="https://github.com/JerryHoTaiwan" target="_blank">GitHub</a>
+      <a href="https://github.com/JerryHoTaiwan" target="_blank" rel="noopener noreferrer">GitHub</a>
       <span class="dot">•</span>
-      <a href="https://scholar.google.com/citations?hl=en&user=HRKp738AAAAJ" target="_blank">Google Scholar</a>
+      <a href="https://scholar.google.com/citations?hl=en&user=HRKp738AAAAJ" target="_blank" rel="noopener noreferrer">Google Scholar</a>
     </div>
   </div>
 </div>
@@ -125,19 +222,26 @@
 <h2>About Me</h2>
 <p>I am a Ph.D. candidate at UC San Diego, advised by <a href="http://www.nickantipa.com">Nick Antipa</a>. My research lies at the intersection of <strong>optics</strong> and <strong>image processing</strong>, focusing on physics-informed algorithm design for computational imaging systems. My work includes <strong>differentiable optics simulation</strong>, as well as applications in <strong>computational photography</strong> and <strong>medical imaging</strong>. I've interned at Meta Reality Labs (Mentor: <a href="https://www.linkedin.com/in/ruobing-qian/">Frank Qian</a>) and MediaTek (Mentor: <a href="https://www.linkedin.com/in/yu-hao-huang-72821060/?originalSubdomain=tw">Yu-Hao Huang</a>). Before joining UCSD, I completed my B.S. in Electrical Engineering at National Taiwan University in 2019, advised by <a href="https://www.ee.ntu.edu.tw/profile1.php?id=60">Homer Chen</a>.</p>
 <div class="cv-link">
-  <a href="pdfs/Jerry_resume_1125.pdf" target="_blank">Download my CV (PDF)</a>
+  <a href="pdfs/Jerry_Ho_CV.pdf" target="_blank" rel="noopener noreferrer">Download my CV (PDF)</a>
 </div>
+<h2>News</h2>
+<ul class="news-list">
+  <li><time datetime="2026-08">August 2026</time> — Our 2DIR work was accepted by <em>Optics Express</em>.</li>
+  <li><time datetime="2026">2026</time> — Our end-to-end computational camera optimization work appears at SPIE Optics + Photonics.</li>
+  <li><time datetime="2026-07">July 2026</time> — Our PRISM paper on plenoptic scintillation imaging was posted on arXiv.</li>
+  <li><time datetime="2025">2025</time> — Our differentiable wave optics paper appeared at ICCV.</li>
+</ul>
 <h2>Publications</h2>
-<div class="publication-filter" aria-label="Publication filter">
+<div class="publication-filter" role="group" aria-label="Publication filter">
   <button class="active" type="button" data-filter="all" aria-pressed="true">All papers</button>
   <button type="button" data-filter="highlighted" aria-pressed="false">Highlighted</button>
 </div>
-<div class="pub-list" id="publication-list"> 
+<ul class="pub-list" id="publication-list">
 
   <li>
-    <div style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="SPIE Lens Figure" src="imgs/SPIE_lens.png" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row">
+      <img alt="Optimized computational camera lens design" src="imgs/SPIE_lens.png" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://spie.org/optics-photonics/presentation/End-to-end-computational-cameras-optimization-with-differentiable-physical-optics/14198-31">End-to-end computational cameras optimization with differentiable physical optics</a><br/>
         <span class="pub-authors">Chi-Jui Ho, Yash Belhe, Steve Rotenberg, Ravi Ramamoorthi, Tzu-Mao Li, Nicholas Antipa</span><br/>
         <em>SPIE Optics + Photonics, paper 14198-31, 2026</em><br/>
@@ -147,9 +251,9 @@
   </li>
 
     <li>
-    <div class="highlighted-paper" style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="2DIR Figure" src="imgs/hyperspec.png" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row highlighted-paper">
+      <img alt="Reconstructed four-dimensional hyperspectral data" src="imgs/hyperspec.png" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://jerryhotaiwan.github.io/projects/neural4dir/">Accelerating 4D Hyperspectral Imaging through Physics-Informed Neural Representation and Adaptive Sampling</a><br/>
         <span class="pub-authors">Chi-Jui Ho, Harsh Bhakta, Xiong Wei, Nicholas Antipa</span><br/>
         <em>Optics Express, vol. 34, no. 17, pp. 31736-31757, 2026</em><br/>
@@ -162,9 +266,9 @@
   </li>
 
     <li>
-    <div style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="PRISM Figure" src="imgs/PRISM.png" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row">
+      <img alt="Plenoptic imaging of particle interactions in a scintillation detector" src="imgs/PRISM.png" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://arxiv.org/abs/2607.01123">Plenoptic imaging of particle interactions in scintillation detectors</a><br/>
         <span class="pub-authors">Xiang Dai, Chi-Jui Ho, Kevin Tandi, Chang Lee, Alex Bocchieri, David Parra, Forrest Peterson, Talha Sultan, Felicia Sutanto, Andreas Velten, Jingke Xu, Nicholas Antipa</span><br/>
         <em>arXiv preprint, 2026</em><br/>
@@ -174,9 +278,9 @@
   </li>
 
   <li>
-    <div class="highlighted-paper" style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="DiffWave Figure" src="imgs/waveoptics.png" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row highlighted-paper">
+      <img alt="Differentiable wave optics imaging pipeline" src="imgs/waveoptics.png" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://jerryhotaiwan.github.io/projects/diff_wave_optics/">A Differentiable Wave Optics Model for End-to-End Computational Imaging System Optimization</a><br/>
         <span class="pub-authors">Chi-Jui Ho, Yash Belhe, Steve Rotenberg, Ravi Ramamoorthi, Tzu-Mao Li, Nicholas Antipa</span><br/>
         <em>ICCV 2025</em><br/>
@@ -188,9 +292,9 @@
   </li>
 
   <li>
-    <div style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="Publication Figure" src="imgs/MRI_reg.png" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row">
+      <img alt="Three-dimensional rectal MRI registration result" src="imgs/MRI_reg.png" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://doi.org/10.1109/ACCESS.2022.3199379">An Unsupervised Learning Approach to 3D Rectal MRI Volume Registration</a><br/>
         <span class="pub-authors">Chi-Jui Ho, Soan T. M. Duong, Yiqian Wang, Chanh D. Tr. Nguyen, Bieu Q. Bui, Steven Q. H. Truong, Truong Nguyen, and Cheolhong An</span><br/>
         <em>IEEE Access, vol. 10, pp. 87650–87660, 2022</em><br/>
@@ -200,9 +304,9 @@
   </li>
 
   <li>
-    <div style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="Publication Figure" src="imgs/multi_temp_reg.png" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row">
+      <img alt="Multi-temporal retinal image registration result" src="imgs/multi_temp_reg.png" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://ieeexplore.ieee.org/document/9613906">A Convolutional Neural Network Pipeline for Multi-Temporal Retinal Image Registration</a><br/>
         <span class="pub-authors">Chi-Jui Ho, Yiqian Wang, Junkang Zhang, Truong Nguyen, and Cheolhong An</span><br/>
         <em>International SoC Design Conference, 2021</em><br/>
@@ -212,9 +316,9 @@
   </li>
 
   <li>
-    <div style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="Publication Figure" src="imgs/OCT_train.jpg" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row">
+      <img alt="FF-OCT squamous cell carcinoma classification examples" src="imgs/OCT_train.jpg" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://www.sciencedirect.com/science/article/pii/S0895611121001415">Classification of Squamous Cell Carcinoma from FF-OCT Images: Data Selection and Progressive Model Construction</a><br/>
         <span class="pub-authors">Chi-Jui Ho, Manuel Calderon-Delgado, Ming-Yi Lin, Jeng-Wei Tjiu, Sheng-Lung Huang, and Homer H. Chen</span><br/>
         <em>Computerized Medical Imaging and Graphics 93 (2021): 101992</em><br/>
@@ -224,9 +328,9 @@
   </li>
 
   <li>
-    <div class="highlighted-paper" style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="Publication Figure" src="imgs/OCT.jpg" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row highlighted-paper">
+      <img alt="Full-field optical coherence tomography tissue image" src="imgs/OCT.jpg" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://onlinelibrary.wiley.com/doi/full/10.1002/jbio.202000271">Detecting mouse squamous cell carcinoma from submicron full-field optical coherence tomography images by deep learning</a><br/>
         <span class="pub-authors">Chi-Jui Ho, Manuel Calderon-Delgado, Chin-Cheng Chan, Ming-Yi Lin, Jeng-Wei Tjiu, Sheng-Lung Huang, and Homer H. Chen</span><br/>
         <em>Journal of Biophotonics, vol. 14, no. 1, e202000271, 2021</em><br/>
@@ -237,9 +341,9 @@
   </li>
 
   <li>
-    <div class="highlighted-paper" style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="Publication Figure" src="imgs/PDAF.jpg" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row highlighted-paper">
+      <img alt="Phase detection autofocus imaging result" src="imgs/PDAF.jpg" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://ieeexplore.ieee.org/document/9130390">AF-Net: A Convolutional Neural Network Approach to Phase Detection Autofocus</a><br/>
         <span class="pub-authors">Chi-Jui Ho, Chin-Cheng Chan, and Homer H. Chen</span><br/>
         <em>IEEE Transactions on Image Processing, vol. 29, pp. 6386–6395, 2020</em><br/>
@@ -250,9 +354,9 @@
   </li>
 
   <li>
-    <div style="display:flex; margin-bottom:24px; align-items:flex-start;">
-      <img alt="Publication Figure" src="imgs/phaseimage.jpg" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-      <div style="flex-grow:1;">
+    <div class="publication-row">
+      <img alt="Comparison of phase images and two-view light fields" src="imgs/phaseimage.jpg" class="publication-image"/>
+      <div class="publication-details">
         <a class="pub-title" href="https://library.imaging.org/ei/articles/32/14/art00022">On the Distinction between Phase images and Two-View Light Field for PDAF of Mobile Imaging</a><br/>
         <span class="pub-authors">Chi-Jui Ho and Homer H. Chen</span><br/>
         <em>Electronic Imaging, 2020</em><br/>
@@ -260,30 +364,30 @@
       </div>
     </div>
   </li>
-</div>
+</ul>
   <h2>Working Experience</h2>
-  <div class="pub-list"> 
-  <li><div style="display:flex; margin-bottom:24px; align-items:flex-start;">
-    <img alt="Publication Figure" src="imgs/meta.png" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-    <div style="flex-grow:1;">
+  <ul class="pub-list">
+  <li><div class="publication-row">
+    <img alt="Meta Reality Labs logo" src="imgs/meta.png" class="publication-image"/>
+    <div class="publication-details">
     <span class="pub-title">Research Scientist Intern</span><br/>
     <span class="pub-authors">Meta Reality Labs, Eye Tracking Research</span><br/>
     <em>Jun. 2024 - Sep. 2024
     </em><br/></div></div></li>
-  <li><div style="display:flex; margin-bottom:24px; align-items:flex-start;">
-    <img alt="Publication Figure" src="imgs/MTK.jpg" style="width:150px; margin-right:16px; flex-shrink:0;"/>
-    <div style="flex-grow:1;">
+  <li><div class="publication-row">
+    <img alt="MediaTek logo" src="imgs/MTK.jpg" class="publication-image"/>
+    <div class="publication-details">
     <span class="pub-title">Summer Intern</span><br/>
     <span class="pub-authors">MediaTek</span><br/>
-    <em>Jul. 2018 - Aug. 2018</em><br/></div></div></li></div>
+    <em>Jul. 2018 - Aug. 2018</em><br/></div></div></li></ul>
 
 <h2>Personal Blog and Notes</h2>
 <p>
   I occasionally write about research, computational imaging, and other interests on my blog (In Traditional Chinese).<br/>
-  <a href="https://hochirijay.medium.com/computational-imaging搞什麼鬼-7187746eb218" target="_blank">What is computational imaging (original: Computational Imaging 搞什麼鬼)</a>
+  <a href="https://hochirijay.medium.com/computational-imaging搞什麼鬼-7187746eb218" target="_blank" rel="noopener noreferrer">What is computational imaging (original: Computational Imaging 搞什麼鬼)</a>
 </p>
 <p>
-  <a href="2DIR.html" target="_blank">
+  <a href="2DIR.html" target="_blank" rel="noopener noreferrer">
     Summary of the physical meanings of t₁, t₂, t₃ in 2DIR three-pulse experiments (original: 2DIR 三脈衝中 t₁, t₂, t₃ 的物理意義整理
   </a>
 </p>
@@ -292,7 +396,7 @@
 <p>Email: chh009@ucsd.edu<br/>
 </p>
 <footer>
-    Last updated: July 2025 • Template inspired by Jon Barron
+    Last updated: August 2026 • Template inspired by Jon Barron
   </footer>
 <script>
   const publicationList = document.getElementById('publication-list');
@@ -302,6 +406,8 @@
     button.addEventListener('click', () => {
       const showHighlightedOnly = button.dataset.filter === 'highlighted';
       const publicationItems = publicationList.querySelectorAll('li');
+
+      document.querySelector('.publication-filter').classList.toggle('highlighted-only', showHighlightedOnly);
 
       publicationItems.forEach((item) => {
         item.hidden = showHighlightedOnly && !item.querySelector('.highlighted-paper');
